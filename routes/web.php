@@ -1,0 +1,54 @@
+<?php
+
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Leader\ContactController as LeaderContactController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SubLeader\ContactController as SubLeaderContactController;
+use App\Http\Controllers\SuperAdmin\UserManagementController;
+use Illuminate\Support\Facades\Route;
+
+Route::get('/', function () {
+    return auth()->check() ? redirect()->route('dashboard') : redirect()->route('login');
+});
+
+Route::get('/dashboard', DashboardController::class)
+    ->middleware(['auth'])
+    ->name('dashboard');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+Route::middleware(['auth', 'role:superadmin'])
+    ->prefix('superadmin')
+    ->name('superadmin.')
+    ->group(function (): void {
+        Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
+        Route::get('/contacts', [UserManagementController::class, 'contactsIndex'])->name('contacts.index');
+        Route::post('/leaders', [UserManagementController::class, 'storeLeader'])->name('leaders.store');
+        Route::post('/sub-leaders', [UserManagementController::class, 'storeSubLeader'])->name('sub-leaders.store');
+        Route::patch('/sub-leaders/{subLeader}/assign-leader', [UserManagementController::class, 'assignLeader'])
+            ->name('sub-leaders.assign-leader');
+    });
+
+Route::middleware(['auth', 'role:leader'])
+    ->prefix('leader')
+    ->name('leader.')
+    ->group(function (): void {
+        Route::get('/contacts', [LeaderContactController::class, 'index'])->name('contacts.index');
+        Route::get('/contacts/export', [LeaderContactController::class, 'export'])->name('contacts.export');
+        Route::get('/contacts/{contact}/whatsapp', [LeaderContactController::class, 'whatsapp'])->name('contacts.whatsapp');
+    });
+
+Route::middleware(['auth', 'role:sub_leader'])
+    ->prefix('sub-leader')
+    ->name('subleader.')
+    ->group(function (): void {
+        Route::get('/contacts', [SubLeaderContactController::class, 'index'])->name('contacts.index');
+        Route::post('/contacts', [SubLeaderContactController::class, 'store'])->name('contacts.store');
+        Route::post('/contacts/import', [SubLeaderContactController::class, 'import'])->name('contacts.import');
+    });
+
+require __DIR__.'/auth.php';
