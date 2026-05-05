@@ -213,6 +213,7 @@
                                 <th>Jumlah Sub Leader</th>
                                 <th>Total Nomor</th>
                                 <th>Sudah Dihubungi</th>
+                                <th>Dihubungi Bulan Ini</th>
                                 <th>Input Terakhir</th>
                             </tr>
                         </thead>
@@ -224,13 +225,14 @@
                                     <td>{{ $leader->sub_leaders_count }}</td>
                                     <td>{{ $leader->contacts_as_leader_count }}</td>
                                     <td>{{ $leader->contacted_contacts_count }}</td>
+                                    <td>{{ $leader->contacted_contacts_monthly_count }}</td>
                                     <td>
                                         {{ $leader->contacts_as_leader_max_created_at ? \Carbon\Carbon::parse($leader->contacts_as_leader_max_created_at)->format('d M Y H:i') : '-' }}
                                     </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-4 py-4 text-slate-500">Data leader tidak ditemukan untuk filter ini.</td>
+                                    <td colspan="7" class="px-4 py-4 text-slate-500">Data leader tidak ditemukan untuk filter ini.</td>
                                 </tr>
                             @endforelse
                         </tbody>

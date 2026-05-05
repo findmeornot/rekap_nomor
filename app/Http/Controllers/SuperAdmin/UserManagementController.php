@@ -104,10 +104,21 @@ class UserManagementController extends Controller
             ->get()
             ->keyBy('leader_id');
 
+        $monthlyContactedRows = Contact::query()
+            ->whereNotNull('contacted_at')
+            ->whereYear('contacted_at', now()->year)
+            ->whereMonth('contacted_at', now()->month)
+            ->selectRaw('leader_id, COUNT(*) as monthly_contacted_count')
+            ->groupBy('leader_id')
+            ->get()
+            ->keyBy('leader_id');
+
         foreach ($leaders as $leader) {
             $row = $summaryRows->get($leader->id);
+            $monthlyRow = $monthlyContactedRows->get($leader->id);
             $leader->setAttribute('contacts_as_leader_count', (int) ($row->total_contacts ?? 0));
             $leader->setAttribute('contacted_contacts_count', (int) ($row->contacted_contacts ?? 0));
+            $leader->setAttribute('contacted_contacts_monthly_count', (int) ($monthlyRow->monthly_contacted_count ?? 0));
             $leader->setAttribute('contacts_as_leader_max_created_at', $row->latest_input_at ?? null);
         }
 

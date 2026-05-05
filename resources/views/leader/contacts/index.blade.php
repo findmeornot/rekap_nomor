@@ -98,6 +98,32 @@
             </div>
 
             <div class="panel fade-in-up">
+                <h3 class="section-title">Ringkasan Leader</h3>
+                <div class="stats-grid mt-4">
+                    <div class="stat-card">
+                        <p class="text-sm font-medium text-slate-500">Total Kontak Leader</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($totalContactsCount) }}</p>
+                    </div>
+                    <div class="stat-card">
+                        <p class="text-sm font-medium text-slate-500">Total Sudah Dihubungi</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($totalContactedCount) }}</p>
+                    </div>
+                    <div class="stat-card">
+                        <p class="text-sm font-medium text-slate-500">Dihubungi Bulan Ini</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($contactedThisMonthCount) }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel fade-in-up">
+                <h3 class="section-title">Grafik Tracking Per Bulan</h3>
+                <p class="section-subtitle">Jumlah nomor yang sudah dihubungi per bulan.</p>
+                <div class="mt-4">
+                    <div id="chartContainer">Loading chart...</div>
+                </div>
+            </div>
+
+            <div class="panel fade-in-up">
                 <h3 class="section-title">Daftar Nomor</h3>
                 <p class="section-subtitle">Total ditemukan: <strong>{{ number_format($contacts->total()) }}</strong> data.</p>
                 @if ($selectedSubLeaderId)
@@ -176,4 +202,55 @@
             </div>
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const data = @json($monthlyContactedData);
+            console.log('Monthly data:', data);
+
+            const container = document.getElementById('chartContainer');
+            if (!container) {
+                console.log('Container not found');
+                return;
+            }
+
+            if (data.length === 0) {
+                container.innerHTML = 'Tidak ada data untuk ditampilkan.';
+                return;
+            }
+
+            // Create canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = 400;
+            canvas.height = 200;
+            container.innerHTML = '';
+            container.appendChild(canvas);
+
+            new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: data.map(item => item.label),
+                    datasets: [{
+                        label: 'Nomor Dihubungi',
+                        data: data.map(item => item.count),
+                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                        borderColor: 'rgba(59, 130, 246, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
 </x-app-layout>

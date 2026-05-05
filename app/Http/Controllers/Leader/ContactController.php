@@ -47,12 +47,40 @@ class ContactController extends Controller
 
         $perPage = (int) $uiFilters['per_page'];
 
+        $totalContactsCount = Contact::where('leader_id', $user->id)->count();
+        $totalContactedCount = Contact::where('leader_id', $user->id)
+            ->whereNotNull('contacted_at')
+            ->count();
+        $contactedThisMonthCount = Contact::where('leader_id', $user->id)
+            ->whereNotNull('contacted_at')
+            ->whereYear('contacted_at', now()->year)
+            ->whereMonth('contacted_at', now()->month)
+            ->count();
+
+        $monthlyContactedData = Contact::where('leader_id', $user->id)
+            ->whereNotNull('contacted_at')
+            ->selectRaw('YEAR(contacted_at) as year, MONTH(contacted_at) as month, COUNT(*) as count')
+            ->groupBy('year', 'month')
+            ->orderBy('year')
+            ->orderBy('month')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'label' => Carbon::create($item->year, $item->month)->format('M Y'),
+                    'count' => $item->count,
+                ];
+            });
+
         return view('leader.contacts.index', [
             'subLeaders' => $subLeaders,
             'selectedSubLeaderId' => $selectedSubLeaderId,
             'filters' => $filters,
             'uiFilters' => $uiFilters,
             'contacts' => $contactsQuery->paginate($perPage)->withQueryString(),
+            'totalContactsCount' => $totalContactsCount,
+            'totalContactedCount' => $totalContactedCount,
+            'contactedThisMonthCount' => $contactedThisMonthCount,
+            'monthlyContactedData' => $monthlyContactedData,
         ]);
     }
 

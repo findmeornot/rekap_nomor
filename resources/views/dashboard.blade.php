@@ -97,8 +97,91 @@
                             <a href="{{ route('superadmin.contacts.index') }}" class="btn-subtle">Lihat Data Per Leader</a>
                         </div>
                     </div>
+
+                    <div class="panel fade-in-up">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="section-title">Grafik Kontak Dihubungi per Leader</h3>
+                                <p class="section-subtitle">Lihat performa setiap leader berdasarkan jumlah kontak yang sudah dihubungi.</p>
+                            </div>
+                            <form method="GET" action="{{ route('dashboard') }}" class="flex items-end gap-2">
+                                <div>
+                                    <label for="leader_chart_month" class="block text-xs font-medium text-slate-600 mb-1">Pilih Bulan</label>
+                                    <input type="month" id="leader_chart_month" name="leader_chart_month" value="{{ $selectedMonth }}" 
+                                        class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                                </div>
+                                <button type="submit" class="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
+                                    Filter
+                                </button>
+                            </form>
+                        </div>
+                        <div class="mt-4" id="superadminChartContainer">
+                            <canvas id="leaderContactedChart" width="600" height="320"></canvas>
+                        </div>
+                    </div>
                 </div>
             @endif
         </div>
     </div>
+
+    @if ($user->isSuperAdmin())
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const data = @json($leaderContactedData ?? []);
+                const selectedMonth = @json($selectedMonth);
+                const canvas = document.getElementById('leaderContactedChart');
+
+                if (!canvas || !data.length) {
+                    if (canvas) {
+                        canvas.parentElement.innerHTML = '<p class="text-slate-500">Tidak ada data untuk bulan ini.</p>';
+                    }
+                    return;
+                }
+
+                const monthDisplay = new Date(selectedMonth + '-01').toLocaleDateString('id-ID', { 
+                    year: 'numeric', 
+                    month: 'long' 
+                });
+
+                new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(item => item.label),
+                        datasets: [{
+                            label: 'Kontak Dihubungi',
+                            data: data.map(item => item.count),
+                            backgroundColor: 'rgba(34, 197, 94, 0.5)',
+                            borderColor: 'rgba(34, 197, 94, 1)',
+                            borderWidth: 1,
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Data Bulan ' + monthDisplay,
+                                font: {
+                                    size: 14,
+                                    weight: '500',
+                                },
+                                padding: {
+                                    bottom: 20,
+                                },
+                            },
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1,
+                                },
+                            },
+                        },
+                    },
+                });
+            });
+        </script>
+    @endif
 </x-app-layout>
