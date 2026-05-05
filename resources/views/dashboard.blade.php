@@ -101,8 +101,8 @@
                     <div class="panel fade-in-up">
                         <div class="flex items-center justify-between">
                             <div>
-                                <h3 class="section-title">Grafik Kontak Dihubungi per Leader</h3>
-                                <p class="section-subtitle">Lihat performa setiap leader berdasarkan jumlah kontak yang sudah dihubungi.</p>
+                                <h3 class="section-title">Diagram Perbandingan Antar Leader</h3>
+                                <p class="section-subtitle">Bandingkan total nomor, sudah dihubungi, dan belum dihubungi untuk setiap leader.</p>
                             </div>
                             <form method="GET" action="{{ route('dashboard') }}" class="flex items-end gap-2">
                                 <div>
@@ -116,7 +116,27 @@
                             </form>
                         </div>
                         <div class="mt-4" id="superadminChartContainer">
-                            <canvas id="leaderContactedChart" width="600" height="320"></canvas>
+                            <canvas id="leaderComparisonChart" width="600" height="320"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="panel fade-in-up">
+                        <div>
+                            <h3 class="section-title">Diagram Perbandingan Antar Sub Leader</h3>
+                            <p class="section-subtitle">Bandingkan total nomor, sudah dihubungi, dan belum dihubungi untuk setiap sub leader.</p>
+                        </div>
+                        <div class="mt-4" id="superadminSubLeaderChartContainer">
+                            <canvas id="subLeaderComparisonChart" width="600" height="320"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="panel fade-in-up">
+                        <div>
+                            <h3 class="section-title">Grafik Total Per Bulan</h3>
+                            <p class="section-subtitle">Total nomor yang sudah dihubungi semua leader dan total nomor yang diinput semua sub leader per bulan (12 bulan terakhir).</p>
+                        </div>
+                        <div class="mt-4" id="monthlyTotalsChartContainer">
+                            <canvas id="monthlyTotalsChart" width="600" height="320"></canvas>
                         </div>
                     </div>
                 </div>
@@ -126,61 +146,205 @@
 
     @if ($user->isSuperAdmin())
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
-                const data = @json($leaderContactedData ?? []);
+                Chart.register(ChartDataLabels);
+
+                const leaderData = @json($leaderComparisonData ?? []);
+                const subLeaderData = @json($subLeaderComparisonData ?? []);
+                const monthlyTotalsData = @json($monthlyTotalsData ?? []);
                 const selectedMonth = @json($selectedMonth);
-                const canvas = document.getElementById('leaderContactedChart');
-
-                if (!canvas || !data.length) {
-                    if (canvas) {
-                        canvas.parentElement.innerHTML = '<p class="text-slate-500">Tidak ada data untuk bulan ini.</p>';
-                    }
-                    return;
-                }
-
                 const monthDisplay = new Date(selectedMonth + '-01').toLocaleDateString('id-ID', { 
                     year: 'numeric', 
                     month: 'long' 
                 });
 
-                new Chart(canvas, {
-                    type: 'bar',
-                    data: {
-                        labels: data.map(item => item.label),
-                        datasets: [{
-                            label: 'Kontak Dihubungi',
-                            data: data.map(item => item.count),
-                            backgroundColor: 'rgba(34, 197, 94, 0.5)',
-                            borderColor: 'rgba(34, 197, 94, 1)',
-                            borderWidth: 1,
-                        }],
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            title: {
-                                display: true,
-                                text: 'Data Bulan ' + monthDisplay,
-                                font: {
-                                    size: 14,
-                                    weight: '500',
+                const renderComparisonChart = (canvasId, containerId, data, title) => {
+                    const canvas = document.getElementById(canvasId);
+                    const container = document.getElementById(containerId);
+
+                    if (!canvas || !container) {
+                        return;
+                    }
+
+                    if (!data.length) {
+                        container.innerHTML = '<p class="text-slate-500">Tidak ada data untuk bulan ini.</p>';
+                        return;
+                    }
+
+                    new Chart(canvas, {
+                        type: 'bar',
+                        data: {
+                            labels: data.map(item => item.label),
+                            datasets: [
+                                {
+                                    label: 'Total Nomor',
+                                    data: data.map(item => item.total),
+                                    backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                                    borderColor: 'rgba(59, 130, 246, 1)',
+                                    borderWidth: 1,
                                 },
-                                padding: {
-                                    bottom: 20,
+                                {
+                                    label: 'Sudah Dihubungi',
+                                    data: data.map(item => item.contacted),
+                                    backgroundColor: 'rgba(34, 197, 94, 0.5)',
+                                    borderColor: 'rgba(34, 197, 94, 1)',
+                                    borderWidth: 1,
+                                },
+                                {
+                                    label: 'Belum Dihubungi',
+                                    data: data.map(item => item.uncontacted),
+                                    backgroundColor: 'rgba(248, 113, 113, 0.5)',
+                                    borderColor: 'rgba(239, 68, 68, 1)',
+                                    borderWidth: 1,
+                                },
+                            ],
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: title + ' - ' + monthDisplay,
+                                    font: {
+                                        size: 14,
+                                        weight: '500',
+                                    },
+                                    padding: {
+                                        bottom: 20,
+                                    },
+                                },
+                                datalabels: {
+                                    color: '#1e3a8a',
+                                    backgroundColor: 'rgba(219, 234, 254, 0.95)',
+                                    borderColor: 'rgba(147, 197, 253, 1)',
+                                    borderWidth: 1,
+                                    borderRadius: 6,
+                                    padding: {
+                                        top: 2,
+                                        right: 6,
+                                        bottom: 2,
+                                        left: 6,
+                                    },
+                                    anchor: 'end',
+                                    align: 'end',
+                                    offset: 6,
+                                    clamp: true,
+                                    clip: false,
+                                    display: (context) => context.datasetIndex === 0 && Number(context.dataset.data[context.dataIndex]) > 0,
+                                    formatter: (value) => Number(value).toLocaleString('id-ID'),
+                                    font: {
+                                        weight: '600',
+                                        size: 10,
+                                    },
+                                },
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1,
+                                    },
                                 },
                             },
                         },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    stepSize: 1,
+                    });
+                };
+
+                renderComparisonChart(
+                    'leaderComparisonChart',
+                    'superadminChartContainer',
+                    leaderData,
+                    'Perbandingan Leader'
+                );
+
+                renderComparisonChart(
+                    'subLeaderComparisonChart',
+                    'superadminSubLeaderChartContainer',
+                    subLeaderData,
+                    'Perbandingan Sub Leader'
+                );
+
+                const monthlyCanvas = document.getElementById('monthlyTotalsChart');
+                const monthlyContainer = document.getElementById('monthlyTotalsChartContainer');
+
+                if (monthlyCanvas && monthlyContainer) {
+                    if (!monthlyTotalsData.length) {
+                        monthlyContainer.innerHTML = '<p class="text-slate-500">Belum ada data bulanan untuk ditampilkan.</p>';
+                    } else {
+                        new Chart(monthlyCanvas, {
+                            type: 'bar',
+                            data: {
+                                labels: monthlyTotalsData.map(item => item.label),
+                                datasets: [
+                                    {
+                                        label: 'Total Sudah Dihubungi (Semua Leader)',
+                                        data: monthlyTotalsData.map(item => item.contacted_total),
+                                        backgroundColor: 'rgba(34, 197, 94, 0.5)',
+                                        borderColor: 'rgba(34, 197, 94, 1)',
+                                        borderWidth: 1,
+                                    },
+                                    {
+                                        label: 'Total Input Nomor (Semua Sub Leader)',
+                                        data: monthlyTotalsData.map(item => item.input_total),
+                                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                                        borderColor: 'rgba(59, 130, 246, 1)',
+                                        borderWidth: 1,
+                                    },
+                                ],
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: {
+                                    title: {
+                                        display: true,
+                                        text: 'Tren Total Bulanan (12 Bulan Terakhir)',
+                                        font: {
+                                            size: 14,
+                                            weight: '500',
+                                        },
+                                        padding: {
+                                            bottom: 20,
+                                        },
+                                    },
+                                    datalabels: {
+                                        color: '#0f172a',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                        borderColor: 'rgba(203, 213, 225, 1)',
+                                        borderWidth: 1,
+                                        borderRadius: 6,
+                                        padding: {
+                                            top: 2,
+                                            right: 6,
+                                            bottom: 2,
+                                            left: 6,
+                                        },
+                                        anchor: 'end',
+                                        align: 'end',
+                                        offset: 4,
+                                        clamp: true,
+                                        clip: false,
+                                        display: (context) => Number(context.dataset.data[context.dataIndex]) > 0,
+                                        formatter: (value) => Number(value).toLocaleString('id-ID'),
+                                        font: {
+                                            weight: '600',
+                                            size: 10,
+                                        },
+                                    },
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: {
+                                            stepSize: 1,
+                                        },
+                                    },
                                 },
                             },
-                        },
-                    },
-                });
+                        });
+                    }
+                }
             });
         </script>
     @endif
