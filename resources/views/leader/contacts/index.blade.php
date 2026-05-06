@@ -116,14 +116,6 @@
             </div>
 
             <div class="panel fade-in-up">
-                <h3 class="section-title">Grafik Tracking Per Bulan</h3>
-                <p class="section-subtitle">Jumlah nomor yang sudah dihubungi per bulan.</p>
-                <div class="mt-4">
-                    <div id="chartContainer">Loading chart...</div>
-                </div>
-            </div>
-
-            <div class="panel fade-in-up">
                 <h3 class="section-title">Daftar Nomor</h3>
                 <p class="section-subtitle">Total ditemukan: <strong>{{ number_format($contacts->total()) }}</strong> data.</p>
                 @if ($selectedSubLeaderId)
@@ -198,6 +190,14 @@
 
                 <div class="mt-4">
                     {{ $contacts->links() }}
+                </div>
+            </div>
+
+            <div class="panel fade-in-up">
+                <h3 class="section-title">Grafik Tracking Per Bulan</h3>
+                <p class="section-subtitle">Jumlah nomor yang sudah dihubungi per bulan.</p>
+                <div class="mt-4">
+                    <div id="chartContainer">Loading chart...</div>
                 </div>
             </div>
         </div>
