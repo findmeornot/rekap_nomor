@@ -122,6 +122,16 @@
 
                     <div class="panel fade-in-up">
                         <div>
+                            <h3 class="section-title">Diagram Perbandingan Antar Tim</h3>
+                            <p class="section-subtitle">Bandingkan performa tim berdasarkan leader dan sub-leader di bawahnya.</p>
+                        </div>
+                        <div class="mt-4" id="teamComparisonChartContainer">
+                            <canvas id="teamComparisonChart" width="600" height="320"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="panel fade-in-up">
+                        <div>
                             <h3 class="section-title">Diagram Perbandingan Antar Sub Leader</h3>
                             <p class="section-subtitle">Bandingkan total nomor, sudah dihubungi, dan belum dihubungi untuk setiap sub leader.</p>
                         </div>
@@ -257,6 +267,34 @@
                     'superadminChartContainer',
                     leaderData,
                     'Perbandingan Leader'
+                );
+
+                // Team comparison chart - group sub-leaders by leader
+                const teamData = subLeaderData.reduce((acc, item) => {
+                    const leaderName = item.group;
+                    if (!acc[leaderName]) {
+                        acc[leaderName] = {
+                            label: leaderName,
+                            total: 0,
+                            contacted: 0,
+                            uncontacted: 0,
+                            subLeaders: 0
+                        };
+                    }
+                    acc[leaderName].total += item.total;
+                    acc[leaderName].contacted += item.contacted;
+                    acc[leaderName].uncontacted += item.uncontacted;
+                    acc[leaderName].subLeaders += 1;
+                    return acc;
+                }, {});
+
+                const teamComparisonData = Object.values(teamData);
+
+                renderComparisonChart(
+                    'teamComparisonChart',
+                    'teamComparisonChartContainer',
+                    teamComparisonData,
+                    'Perbandingan Tim'
                 );
 
                 renderComparisonChart(
