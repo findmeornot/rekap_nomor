@@ -31,7 +31,7 @@
 
             <div class="grid gap-6 lg:grid-cols-2">
                 <div class="panel fade-in-up">
-                    <h3 class="section-title">Tambah Leader</h3>
+                    <h3 class="section-title">Tambah Marketing Utama</h3>
                     <form class="mt-4 space-y-4" method="POST" action="{{ route('superadmin.leaders.store') }}">
                         @csrf
                         <div>
@@ -51,7 +51,7 @@
                 </div>
 
                 <div class="panel fade-in-up">
-                    <h3 class="section-title">Tambah Sub Leader</h3>
+                    <h3 class="section-title">Tambah Assistant Marketing</h3>
                     <form class="mt-4 space-y-4" method="POST" action="{{ route('superadmin.sub-leaders.store') }}">
                         @csrf
                         <div>
@@ -67,8 +67,8 @@
                             <x-text-input id="sub_password" type="password" name="password" class="mt-1 block w-full" required />
                         </div>
                         <div>
-                            <x-input-label for="leader_id" value="Pilih Leader" />
-                            <select id="leader_id" name="leader_id" class="mt-1 block w-full" required>
+                            <x-input-label for="main_marketing_id" value="Pilih Marketing Utama" />
+                            <select id="main_marketing_id" name="main_marketing_id" class="mt-1 block w-full" required>
                                 <option value="">-- Pilih --</option>
                                 @foreach ($leaders as $leader)
                                     <option value="{{ $leader->id }}">{{ $leader->name }}</option>
@@ -81,14 +81,14 @@
             </div>
 
             <div class="panel fade-in-up">
-                <h3 class="section-title">Daftar Leader</h3>
+                <h3 class="section-title">Daftar Marketing Utama</h3>
                 <div class="table-wrap mt-4">
                     <table class="table-clean">
                         <thead>
                             <tr>
                                 <th>Nama</th>
                                 <th>Email</th>
-                                <th>Jumlah Sub Leader</th>
+                                <th>Jumlah Assistant Marketing</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -109,15 +109,15 @@
             </div>
 
             <div class="panel fade-in-up">
-                <h3 class="section-title">Daftar Sub Leader</h3>
+                <h3 class="section-title">Daftar Assistant Marketing</h3>
                 <div class="table-wrap mt-4">
                     <table class="table-clean">
                         <thead>
                             <tr>
                                 <th>Nama</th>
                                 <th>Email</th>
-                                <th>Leader Saat Ini</th>
-                                <th>Ubah Leader</th>
+                                <th>Marketing Utama Saat Ini</th>
+                                <th>Ubah Marketing Utama</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -130,9 +130,9 @@
                                         <form class="flex gap-2" method="POST" action="{{ route('superadmin.sub-leaders.assign-leader', $subLeader) }}">
                                             @csrf
                                             @method('PATCH')
-                                            <select name="leader_id" class="text-sm" required>
+                                            <select name="main_marketing_id" class="text-sm" required>
                                                 @foreach ($leaders as $leader)
-                                                    <option value="{{ $leader->id }}" @selected($subLeader->leader_id === $leader->id)>
+                                                    <option value="{{ $leader->id }}" @selected($subLeader->main_marketing_id === $leader->id)>
                                                         {{ $leader->name }}
                                                     </option>
                                                 @endforeach
