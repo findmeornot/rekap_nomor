@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['contact_name', 'phone', 'sub_leader_id', 'leader_id', 'contacted_at', 'contacted_by_leader_id'])]
+#[Fillable(['contact_name', 'phone', 'assistant_marketing_id', 'main_marketing_id', 'contacted_at', 'contacted_by_main_marketing_id'])]
 class Contact extends Model
 {
     protected function casts(): array
@@ -32,13 +32,23 @@ class Contact extends Model
         return 'https://wa.me/'.$this->whatsapp_phone;
     }
 
+    public function assistantMarketing(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assistant_marketing_id');
+    }
+
     public function subLeader(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'sub_leader_id');
+        return $this->assistantMarketing();
+    }
+
+    public function mainMarketing(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'main_marketing_id');
     }
 
     public function leader(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'leader_id');
+        return $this->mainMarketing();
     }
 }
