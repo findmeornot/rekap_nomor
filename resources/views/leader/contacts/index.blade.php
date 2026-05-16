@@ -14,11 +14,11 @@
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div>
                         <h3 class="section-title">Sub Leader Saya</h3>
-                        <p class="section-subtitle">Pilih sub leader untuk melihat data yang lebih spesifik.</p>
+                        <p class="section-subtitle">Pilih assistant marketing untuk melihat data yang lebih spesifik.</p>
                     </div>
-                    <a href="{{ route('leader.contacts.export', request()->only('sub_leader_id', 'period', 'start_date', 'end_date', 'q', 'status')) }}" class="btn-main">
-                        Export CSV
-                    </a>
+                    <div class="flex flex-wrap gap-2">
+                        <a href="{{ route('leader.contacts.export', request()->only('assistant_marketing_id', 'period', 'start_date', 'end_date', 'q', 'status')) }}" class="btn-main">Export CSV</a>
+                    </div>
                 </div>
 
                 <form method="GET" class="mt-4 space-y-3" x-data="{ period: '{{ $filters['period'] ?? 'all' }}' }">
@@ -32,10 +32,10 @@
                             aria-label="Cari data kontak"
                             class="xl:col-span-2"
                         />
-                        <select name="sub_leader_id" aria-label="Pilih sub leader">
-                            <option value="">Semua Sub Leader</option>
+                        <select name="assistant_marketing_id" aria-label="Pilih assistant marketing">
+                            <option value="">Semua Assistant Marketing</option>
                             @foreach ($subLeaders as $subLeader)
-                                <option value="{{ $subLeader->id }}" @selected($selectedSubLeaderId === $subLeader->id)>
+                                <option value="{{ $subLeader->id }}" @selected($selectedAssistantMarketingId === $subLeader->id)>
                                     {{ $subLeader->name }}
                                 </option>
                             @endforeach
@@ -71,7 +71,7 @@
 
                     <div class="flex flex-wrap items-center gap-2">
                         <button type="submit" class="btn-main">Terapkan</button>
-                        @if ($selectedSubLeaderId || ($filters['period'] ?? 'all') !== 'all' || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || ($uiFilters['q'] ?? null) || ($uiFilters['status'] ?? 'all') !== 'all' || ($uiFilters['per_page'] ?? 20) !== 20)
+                        @if ($selectedAssistantMarketingId || ($filters['period'] ?? 'all') !== 'all' || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || ($uiFilters['q'] ?? null) || ($uiFilters['status'] ?? 'all') !== 'all' || ($uiFilters['per_page'] ?? 20) !== 20)
                             <a href="{{ route('leader.contacts.index') }}" class="btn-subtle">Reset Semua Filter</a>
                         @endif
                     </div>
@@ -80,14 +80,14 @@
                 <div class="mt-4 flex flex-wrap gap-2">
                     <a
                         href="{{ route('leader.contacts.index', request()->only('period', 'start_date', 'end_date')) }}"
-                        class="chip {{ $selectedSubLeaderId ? '' : 'border-blue-200 bg-blue-50 text-blue-700' }}"
+                        class="chip {{ $selectedAssistantMarketingId ? '' : 'border-blue-200 bg-blue-50 text-blue-700' }}"
                     >
-                        Semua Sub Leader
+                        Semua Assistant Marketing
                     </a>
                     @forelse ($subLeaders as $subLeader)
                         <a
-                            href="{{ route('leader.contacts.index', array_merge(request()->only('period', 'start_date', 'end_date'), ['sub_leader_id' => $subLeader->id])) }}"
-                            class="chip {{ $selectedSubLeaderId === $subLeader->id ? 'border-blue-200 bg-blue-50 text-blue-700' : '' }}"
+                            href="{{ route('leader.contacts.index', array_merge(request()->only('period', 'start_date', 'end_date'), ['assistant_marketing_id' => $subLeader->id])) }}"
+                            class="chip {{ $selectedAssistantMarketingId === $subLeader->id ? 'border-blue-200 bg-blue-50 text-blue-700' : '' }}"
                         >
                             {{ $subLeader->name }} ({{ $subLeader->contacts_entered_count }} nomor)
                         </a>
@@ -101,7 +101,7 @@
                 <h3 class="section-title">Ringkasan Leader</h3>
                 <div class="stats-grid mt-4">
                     <div class="stat-card">
-                        <p class="text-sm font-medium text-slate-500">Total Kontak Leader</p>
+                        <p class="text-sm font-medium text-slate-500">Total Kontak Marketing Utama</p>
                         <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($totalContactsCount) }}</p>
                     </div>
                     <div class="stat-card">
@@ -112,16 +112,21 @@
                         <p class="text-sm font-medium text-slate-500">Dihubungi Bulan Ini</p>
                         <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($contactedThisMonthCount) }}</p>
                     </div>
+                    <div class="stat-card">
+                        <p class="text-sm font-medium text-slate-500">Target Marketing Utama</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($target) }}</p>
+                        <p class="mt-1 text-xs text-slate-500">Progress: {{ $progress }}%</p>
+                    </div>
                 </div>
             </div>
 
             <div class="panel fade-in-up">
                 <h3 class="section-title">Daftar Nomor</h3>
                 <p class="section-subtitle">Total ditemukan: <strong>{{ number_format($contacts->total()) }}</strong> data.</p>
-                @if ($selectedSubLeaderId)
+                @if ($selectedAssistantMarketingId)
                     <p class="section-subtitle">
                         Menampilkan data dari:
-                        <strong>{{ $subLeaders->firstWhere('id', $selectedSubLeaderId)?->name ?? '-' }}</strong>
+                        <strong>{{ $subLeaders->firstWhere('id', $selectedAssistantMarketingId)?->name ?? '-' }}</strong>
                     </p>
                 @endif
                 @if (($filters['period'] ?? 'all') !== 'all' || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null))
