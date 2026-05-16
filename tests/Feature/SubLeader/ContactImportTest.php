@@ -27,8 +27,8 @@ class ContactImportTest extends TestCase
         Contact::create([
             'contact_name' => 'Existing',
             'phone' => '628111111001',
-            'sub_leader_id' => $subLeader->id,
-            'leader_id' => $leader->id,
+            'assistant_marketing_id' => $subLeader->id,
+            'main_marketing_id' => $leader->id,
         ]);
 
         $csv = implode("\n", [
@@ -53,8 +53,8 @@ class ContactImportTest extends TestCase
         $this->assertDatabaseHas('contacts', [
             'contact_name' => 'Budi',
             'phone' => '628111111002',
-            'sub_leader_id' => $subLeader->id,
-            'leader_id' => $leader->id,
+            'assistant_marketing_id' => $subLeader->id,
+            'main_marketing_id' => $leader->id,
         ]);
 
         $this->assertDatabaseHas('contacts', [
