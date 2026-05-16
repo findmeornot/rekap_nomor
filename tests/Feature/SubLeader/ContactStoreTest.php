@@ -26,8 +26,8 @@ class ContactStoreTest extends TestCase
         Contact::create([
             'contact_name' => 'Existing',
             'phone' => '628111111001',
-            'sub_leader_id' => $subLeader->id,
-            'leader_id' => $leader->id,
+            'assistant_marketing_id' => $subLeader->id,
+            'main_marketing_id' => $leader->id,
         ]);
 
         $response = $this->actingAs($subLeader)
@@ -42,8 +42,8 @@ class ContactStoreTest extends TestCase
         $this->assertDatabaseHas('contacts', [
             'phone' => '081234567890',
             'contact_name' => 'Batch Input',
-            'sub_leader_id' => $subLeader->id,
-            'leader_id' => $leader->id,
+            'assistant_marketing_id' => $subLeader->id,
+            'main_marketing_id' => $leader->id,
         ]);
 
         $this->assertDatabaseHas('contacts', [
