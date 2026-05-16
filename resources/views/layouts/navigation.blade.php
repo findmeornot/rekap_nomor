@@ -29,8 +29,14 @@
         $moduleItems[] = [
             'label' => 'Rekap Nomor',
             'href' => route('leader.contacts.index'),
-            'active' => request()->routeIs('leader.*'),
+            'active' => request()->routeIs('leader.contacts.*'),
             'icon' => 'list',
+        ];
+        $moduleItems[] = [
+            'label' => 'Permintaan Nomor',
+            'href' => route('leader.requests.index'),
+            'active' => request()->routeIs('leader.requests.*'),
+            'icon' => 'request',
         ];
     }
 
@@ -118,6 +124,12 @@
                         @if ($item['icon'] === 'phone')
                             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.87 19.87 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.87 19.87 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.77.63 2.61a2 2 0 0 1-.45 2.11L8 9.91a16 16 0 0 0 6 6l1.47-1.29a2 2 0 0 1 2.11-.45c.84.3 1.71.51 2.61.63A2 2 0 0 1 22 16.92z"></path>
+                            </svg>
+                        @endif
+
+                        @if ($item['icon'] === 'request')
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 5v14M5 12h14" />
                             </svg>
                         @endif
 
