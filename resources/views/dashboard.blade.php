@@ -26,6 +26,16 @@
                         <a href="{{ route('subleader.contacts.index') }}" class="btn-main">Mulai Input Nomor</a>
                     </div>
                 </div>
+
+                <div class="grid gap-6 lg:grid-cols-2">
+                    <div class="panel fade-in-up">
+                        <h3 class="section-title">Grafik Harian Assistant Marketing</h3>
+                        <p class="section-subtitle">Jumlah input nomor yang kamu tambahkan setiap hari selama 7 hari terakhir, dengan garis target harian.</p>
+                        <div class="mt-4">
+                            <canvas id="subLeaderDailyChart" width="600" height="320"></canvas>
+                        </div>
+                    </div>
+                </div>
             @elseif ($user->isLeader())
                 <div class="stats-grid stagger">
                     <div class="stat-card fade-in-up">
@@ -49,6 +59,30 @@
                     </p>
                     <div class="mt-5 flex flex-wrap gap-3">
                         <a href="{{ route('leader.contacts.index') }}" class="btn-main">Lihat Rekap Nomor</a>
+                        <a href="{{ route('leader.requests.index') }}" class="btn-subtle">Permintaan Nomor</a>
+                    </div>
+                </div>
+
+                <div class="grid gap-6 lg:grid-cols-2">
+                    <div class="panel fade-in-up">
+                        <h3 class="section-title">Grafik Harian Marketing Utama</h3>
+                        <p class="section-subtitle">Jumlah kontak yang sudah dihubungi per hari selama 7 hari terakhir, dengan garis target harian.</p>
+                        <div class="mt-4">
+                            <canvas id="mainDailyChart" width="600" height="320"></canvas>
+                        </div>
+                        <div class="mt-4 space-y-2 text-sm text-slate-700">
+                            <p>Total kontak: <strong>{{ $stats['contacts'] }}</strong></p>
+                            <p>Sudah dihubungi: <strong>{{ $stats['contacted'] }}</strong></p>
+                            <p>Sisa target: <strong>{{ $mainTargetData['remaining'] }}</strong></p>
+                        </div>
+                    </div>
+
+                    <div class="panel fade-in-up">
+                        <h3 class="section-title">Grafik Harian Assistant Marketing</h3>
+                        <p class="section-subtitle">Jumlah input nomor tim assistant marketing per hari, dengan garis target harian.</p>
+                        <div class="mt-4">
+                            <canvas id="assistantDailyChart" width="600" height="320"></canvas>
+                        </div>
                     </div>
                 </div>
             @else
@@ -279,6 +313,354 @@
                             contacted: 0,
                             uncontacted: 0,
                             subLeaders: 0
+                        };
+                    }
+                    acc[leaderName].total += item.total;
+                    acc[leaderName].contacted += item.contacted;
+                    acc[leaderName].uncontacted += item.uncontacted;
+                    acc[leaderName].subLeaders += 1;
+                    return acc;
+                }, {});
+
+                const teamComparisonData = Object.values(teamData);
+
+                renderComparisonChart(
+                    'teamComparisonChart',
+                    'teamComparisonChartContainer',
+                    teamComparisonData,
+                    'Perbandingan Tim'
+                );
+
+                renderComparisonChart(
+                    'subLeaderComparisonChart',
+                    'superadminSubLeaderChartContainer',
+                    subLeaderData,
+                    'Perbandingan Sub Leader'
+                );
+
+                const monthlyCanvas = document.getElementById('monthlyTotalsChart');
+                const monthlyContainer = document.getElementById('monthlyTotalsChartContainer');
+
+                if (monthlyCanvas && monthlyContainer) {
+                    if (!monthlyTotalsData.length) {
+                        monthlyContainer.innerHTML = '<p class="text-slate-500">Belum ada data bulanan untuk ditampilkan.</p>';
+                    } else {
+                        new Chart(monthlyCanvas, {
+                            type: 'bar',
+                            data: {
+                                labels: monthlyTotalsData.map(item => item.label),
+                                datasets: [
+                                    {
+                                        label: 'Total Sudah Dihubungi (Semua Leader)',
+                                        data: monthlyTotalsData.map(item => item.contacted_total),
+                                        backgroundColor: 'rgba(34, 197, 94, 0.5)',
+                                        borderColor: 'rgba(34, 197, 94, 1)',
+                                        borderWidth: 1,
+                                    },
+                                    {
+                                        label: 'Total Input Nomor (Semua Sub Leader)',
+                                        data: monthlyTotalsData.map(item => item.input_total),
+                                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                                        borderColor: 'rgba(59, 130, 246, 1)',
+                                        borderWidth: 1,
+                                    },
+                                ],
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: {
+                                    title: {
+                                        display: true,
+                                        text: 'Tren Total Bulanan (12 Bulan Terakhir)',
+                                        font: {
+                                            size: 14,
+                                            weight: '500',
+                                        },
+                                        padding: {
+                                            bottom: 20,
+                                        },
+                                    },
+                                    datalabels: {
+                                        color: '#0f172a',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                        borderColor: 'rgba(203, 213, 225, 1)',
+                                        borderWidth: 1,
+                                        borderRadius: 6,
+                                        padding: {
+                                            top: 2,
+                                            right: 6,
+                                            bottom: 2,
+                                            left: 6,
+                                        },
+                                        anchor: 'end',
+                                        align: 'end',
+                                        offset: 4,
+                                        clamp: true,
+                                        clip: false,
+                                        display: (context) => Number(context.dataset.data[context.dataIndex]) > 0,
+                                        formatter: (value) => Number(value).toLocaleString('id-ID'),
+                                        font: {
+                                            weight: '600',
+                                            size: 10,
+                                        },
+                                    },
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: {
+                                            stepSize: 1,
+                                        },
+                                    },
+                                },
+                            },
+                        });
+                    }
+                }
+            });
+        </script>
+    @endif
+
+    @if ($user->isLeader() || $user->isSubLeader() || $user->isSuperAdmin())
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    @endif
+
+    @if ($user->isLeader() || $user->isSubLeader())
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const mainTargetData = @json($mainTargetData ?? []);
+                const mainDailyData = @json($mainDailyData ?? []);
+                const mainDailyTargetData = @json($mainDailyTargetData ?? []);
+                const assistantDailyData = @json($assistantDailyData ?? []);
+                const assistantDailyTargetData = @json($assistantDailyTargetData ?? []);
+                const subLeaderDailyData = @json($subLeaderDailyData ?? []);
+                const subLeaderDailyTargetData = @json($subLeaderDailyTargetData ?? []);
+                const dailyLabels = @json($stats['daily_labels'] ?? []);
+
+                const renderBarChart = (canvasId, chartTitle, labels, datasets) => {
+                    const canvas = document.getElementById(canvasId);
+                    if (!canvas) {
+                        return;
+                    }
+
+                    new Chart(canvas, {
+                        type: 'bar',
+                        data: {
+                            labels,
+                            datasets,
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: chartTitle,
+                                    font: {
+                                        size: 14,
+                                        weight: '500',
+                                    },
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function (context) {
+                                            return context.dataset.label + ': ' + context.parsed.y.toLocaleString('id-ID');
+                                        },
+                                    },
+                                },
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 10,
+                                    },
+                                },
+                            },
+                        },
+                    });
+                };
+
+                if (dailyLabels.length && mainDailyData.length) {
+                    renderBarChart('mainDailyChart', 'Grafik Harian Marketing Utama', dailyLabels, [
+                        {
+                            label: 'Kontak Dihubungi',
+                            data: mainDailyData,
+                            backgroundColor: 'rgba(34, 197, 94, 0.75)',
+                            borderColor: 'rgba(34, 197, 94, 1)',
+                            borderWidth: 1,
+                        },
+                        {
+                            label: 'Target Harian',
+                            data: mainDailyTargetData,
+                            backgroundColor: 'rgba(59, 130, 246, 0.35)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 1,
+                        },
+                    ]);
+                }
+
+                if (dailyLabels.length && assistantDailyData.length) {
+                    renderBarChart('assistantDailyChart', 'Grafik Harian Assistant Marketing', dailyLabels, [
+                        {
+                            label: 'Input Harian',
+                            data: assistantDailyData,
+                            backgroundColor: 'rgba(16, 185, 129, 0.75)',
+                            borderColor: 'rgba(5, 150, 105, 1)',
+                            borderWidth: 1,
+                        },
+                        {
+                            label: 'Target Harian',
+                            data: assistantDailyTargetData,
+                            backgroundColor: 'rgba(59, 130, 246, 0.35)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 1,
+                        },
+                    ]);
+                }
+
+                if (dailyLabels.length && subLeaderDailyData.length) {
+                    renderBarChart('subLeaderDailyChart', 'Grafik Harian Assistant Marketing', dailyLabels, [
+                        {
+                            label: 'Input Harian',
+                            data: subLeaderDailyData,
+                            backgroundColor: 'rgba(34, 197, 94, 0.75)',
+                            borderColor: 'rgba(34, 197, 94, 1)',
+                            borderWidth: 1,
+                        },
+                        {
+                            label: 'Target Harian',
+                            data: subLeaderDailyTargetData,
+                            backgroundColor: 'rgba(59, 130, 246, 0.35)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 1,
+                        },
+                    ]);
+                }
+            });
+        </script>
+    @endif
+
+    @if ($user->isSuperAdmin())
+        <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                const leaderData = @json($leaderComparisonData ?? []);
+                const subLeaderData = @json($subLeaderComparisonData ?? []);
+                const monthlyTotalsData = @json($monthlyTotalsData ?? []);
+                const selectedMonth = @json($selectedMonth);
+                const monthDisplay = new Date(selectedMonth + '-01').toLocaleDateString('id-ID', {
+                    year: 'numeric',
+                    month: 'long',
+                });
+
+                const renderComparisonChart = (canvasId, containerId, data, title) => {
+                    const canvas = document.getElementById(canvasId);
+                    const container = document.getElementById(containerId);
+
+                    if (!canvas || !container) {
+                        return;
+                    }
+
+                    if (!data.length) {
+                        container.innerHTML = '<p class="text-slate-500">Tidak ada data untuk bulan ini.</p>';
+                        return;
+                    }
+
+                    new Chart(canvas, {
+                        type: 'bar',
+                        data: {
+                            labels: data.map(item => item.label),
+                            datasets: [
+                                {
+                                    label: 'Total Nomor',
+                                    data: data.map(item => item.total),
+                                    backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                                    borderColor: 'rgba(59, 130, 246, 1)',
+                                    borderWidth: 1,
+                                },
+                                {
+                                    label: 'Sudah Dihubungi',
+                                    data: data.map(item => item.contacted),
+                                    backgroundColor: 'rgba(34, 197, 94, 0.5)',
+                                    borderColor: 'rgba(34, 197, 94, 1)',
+                                    borderWidth: 1,
+                                },
+                                {
+                                    label: 'Belum Dihubungi',
+                                    data: data.map(item => item.uncontacted),
+                                    backgroundColor: 'rgba(248, 113, 113, 0.5)',
+                                    borderColor: 'rgba(239, 68, 68, 1)',
+                                    borderWidth: 1,
+                                },
+                            ],
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: title + ' - ' + monthDisplay,
+                                    font: {
+                                        size: 14,
+                                        weight: '500',
+                                    },
+                                    padding: {
+                                        bottom: 20,
+                                    },
+                                },
+                                datalabels: {
+                                    color: '#1e3a8a',
+                                    backgroundColor: 'rgba(219, 234, 254, 0.95)',
+                                    borderColor: 'rgba(147, 197, 253, 1)',
+                                    borderWidth: 1,
+                                    borderRadius: 6,
+                                    padding: {
+                                        top: 2,
+                                        right: 6,
+                                        bottom: 2,
+                                        left: 6,
+                                    },
+                                    anchor: 'end',
+                                    align: 'end',
+                                    offset: 6,
+                                    clamp: true,
+                                    clip: false,
+                                    display: (context) => context.datasetIndex === 0 && Number(context.dataset.data[context.dataIndex]) > 0,
+                                    formatter: (value) => Number(value).toLocaleString('id-ID'),
+                                    font: {
+                                        weight: '600',
+                                        size: 10,
+                                    },
+                                },
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1,
+                                    },
+                                },
+                            },
+                        },
+                    });
+                };
+
+                renderComparisonChart(
+                    'leaderComparisonChart',
+                    'superadminChartContainer',
+                    leaderData,
+                    'Perbandingan Leader'
+                );
+
+                const teamData = subLeaderData.reduce((acc, item) => {
+                    const leaderName = item.group;
+                    if (!acc[leaderName]) {
+                        acc[leaderName] = {
+                            label: leaderName,
+                            total: 0,
+                            contacted: 0,
+                            uncontacted: 0,
+                            subLeaders: 0,
                         };
                     }
                     acc[leaderName].total += item.total;
