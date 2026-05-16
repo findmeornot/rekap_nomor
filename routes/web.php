@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Leader\ContactController as LeaderContactController;
+use App\Http\Controllers\Leader\NumberRequestController as LeaderNumberRequestController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SubLeader\ContactController as SubLeaderContactController;
 use App\Http\Controllers\SuperAdmin\UserManagementController;
@@ -33,16 +34,20 @@ Route::middleware(['auth', 'role:superadmin'])
             ->name('sub-leaders.assign-leader');
     });
 
-Route::middleware(['auth', 'role:leader'])
+Route::middleware(['auth', 'role:main_marketing'])
     ->prefix('leader')
     ->name('leader.')
     ->group(function (): void {
         Route::get('/contacts', [LeaderContactController::class, 'index'])->name('contacts.index');
         Route::get('/contacts/export', [LeaderContactController::class, 'export'])->name('contacts.export');
         Route::get('/contacts/{contact}/whatsapp', [LeaderContactController::class, 'whatsapp'])->name('contacts.whatsapp');
+        Route::get('/requests', [LeaderNumberRequestController::class, 'index'])->name('requests.index');
+        Route::post('/requests', [LeaderNumberRequestController::class, 'store'])->name('requests.store');
+        Route::patch('/requests/{numberRequest}/approve', [LeaderNumberRequestController::class, 'approve'])->name('requests.approve');
+        Route::patch('/requests/{numberRequest}/reject', [LeaderNumberRequestController::class, 'reject'])->name('requests.reject');
     });
 
-Route::middleware(['auth', 'role:sub_leader'])
+Route::middleware(['auth', 'role:assistant_marketing'])
     ->prefix('sub-leader')
     ->name('subleader.')
     ->group(function (): void {
