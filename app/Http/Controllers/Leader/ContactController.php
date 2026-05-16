@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Leader;
 
 use App\Http\Controllers\Controller;
 use App\Models\Contact;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
@@ -18,11 +19,11 @@ class ContactController extends Controller
         $user = auth()->user();
         $filters = $this->resolveDateFilter($request);
         $uiFilters = $this->resolveUiFilters($request);
-        $selectedSubLeaderId = $request->integer('sub_leader_id');
+        $selectedAssistantMarketingId = $request->integer('assistant_marketing_id');
         $subLeaders = $user->subLeaders()
             ->withCount([
                 'contactsEntered as contacts_entered_count' => function (Builder $query) use ($user, $filters, $uiFilters): void {
-                    $query->where('leader_id', $user->id);
+                    $query->where('main_marketing_id', $user->id);
                     $this->applyDateFilter($query, $filters);
                     $this->applyListFilters($query, $uiFilters);
                 },
@@ -31,33 +32,33 @@ class ContactController extends Controller
             ->get();
 
         $allowedSubLeaderIds = $subLeaders->pluck('id')->all();
-        if ($selectedSubLeaderId > 0 && ! in_array($selectedSubLeaderId, $allowedSubLeaderIds, true)) {
-            $selectedSubLeaderId = null;
+        if ($selectedAssistantMarketingId > 0 && ! in_array($selectedAssistantMarketingId, $allowedSubLeaderIds, true)) {
+            $selectedAssistantMarketingId = null;
         }
 
-        $contactsQuery = Contact::where('leader_id', $user->id)
+        $contactsQuery = Contact::where('main_marketing_id', $user->id)
             ->with('subLeader:id,name')
             ->latest();
         $this->applyDateFilter($contactsQuery, $filters);
         $this->applyListFilters($contactsQuery, $uiFilters);
 
-        if ($selectedSubLeaderId) {
-            $contactsQuery->where('sub_leader_id', $selectedSubLeaderId);
+        if ($selectedAssistantMarketingId) {
+            $contactsQuery->where('assistant_marketing_id', $selectedAssistantMarketingId);
         }
 
         $perPage = (int) $uiFilters['per_page'];
 
-        $totalContactsCount = Contact::where('leader_id', $user->id)->count();
-        $totalContactedCount = Contact::where('leader_id', $user->id)
+        $totalContactsCount = Contact::where('main_marketing_id', $user->id)->count();
+        $totalContactedCount = Contact::where('main_marketing_id', $user->id)
             ->whereNotNull('contacted_at')
             ->count();
-        $contactedThisMonthCount = Contact::where('leader_id', $user->id)
+        $contactedThisMonthCount = Contact::where('main_marketing_id', $user->id)
             ->whereNotNull('contacted_at')
             ->whereYear('contacted_at', now()->year)
             ->whereMonth('contacted_at', now()->month)
             ->count();
 
-        $monthlyContactedData = Contact::where('leader_id', $user->id)
+        $monthlyContactedData = Contact::where('main_marketing_id', $user->id)
             ->whereNotNull('contacted_at')
             ->selectRaw('YEAR(contacted_at) as year, MONTH(contacted_at) as month, COUNT(*) as count')
             ->groupBy('year', 'month')
@@ -71,9 +72,12 @@ class ContactController extends Controller
                 ];
             });
 
+        $target = User::TARGET_MAIN_MARKETING;
+        $progress = $target > 0 ? (int) round(($totalContactedCount / $target) * 100) : 0;
+
         return view('leader.contacts.index', [
             'subLeaders' => $subLeaders,
-            'selectedSubLeaderId' => $selectedSubLeaderId,
+            'selectedAssistantMarketingId' => $selectedAssistantMarketingId,
             'filters' => $filters,
             'uiFilters' => $uiFilters,
             'contacts' => $contactsQuery->paginate($perPage)->withQueryString(),
@@ -81,6 +85,8 @@ class ContactController extends Controller
             'totalContactedCount' => $totalContactedCount,
             'contactedThisMonthCount' => $contactedThisMonthCount,
             'monthlyContactedData' => $monthlyContactedData,
+            'target' => $target,
+            'progress' => $progress,
         ]);
     }
 
@@ -89,27 +95,27 @@ class ContactController extends Controller
         $user = auth()->user();
         $filters = $this->resolveDateFilter($request);
         $uiFilters = $this->resolveUiFilters($request);
-        $selectedSubLeaderId = $request->integer('sub_leader_id');
+        $selectedAssistantMarketingId = $request->integer('assistant_marketing_id');
         $allowedSubLeaderIds = $user->subLeaders()->pluck('id')->all();
-        if ($selectedSubLeaderId > 0 && ! in_array($selectedSubLeaderId, $allowedSubLeaderIds, true)) {
-            $selectedSubLeaderId = null;
+        if ($selectedAssistantMarketingId > 0 && ! in_array($selectedAssistantMarketingId, $allowedSubLeaderIds, true)) {
+            $selectedAssistantMarketingId = null;
         }
 
         $fileName = 'rekap-kontak-leader-'.$user->id.'-'.now()->format('Ymd_His').'.csv';
 
-        return response()->streamDownload(function () use ($user, $selectedSubLeaderId, $filters, $uiFilters) {
+        return response()->streamDownload(function () use ($user, $selectedAssistantMarketingId, $filters, $uiFilters) {
             $handle = fopen('php://output', 'w');
-            fputcsv($handle, ['Nama Kontak', 'Nomor', 'Sub Leader', 'Status', 'Tanggal Input']);
+            fputcsv($handle, ['Nama Kontak', 'Nomor', 'Assistant Marketing', 'Status', 'Tanggal Input']);
 
-            $contactsQuery = Contact::where('leader_id', $user->id)
+            $contactsQuery = Contact::where('main_marketing_id', $user->id)
                 ->with('subLeader:id,name')
                 ->orderByDesc('created_at');
 
             $this->applyDateFilter($contactsQuery, $filters);
             $this->applyListFilters($contactsQuery, $uiFilters);
 
-            if ($selectedSubLeaderId) {
-                $contactsQuery->where('sub_leader_id', $selectedSubLeaderId);
+            if ($selectedAssistantMarketingId) {
+                $contactsQuery->where('assistant_marketing_id', $selectedAssistantMarketingId);
             }
 
             $contactsQuery->chunk(200, function ($contacts) use ($handle) {
@@ -134,12 +140,12 @@ class ContactController extends Controller
     {
         $user = auth()->user();
 
-        abort_unless($contact->leader_id === $user->id, 404);
+        abort_unless($contact->main_marketing_id === $user->id, 404);
 
         if (! $contact->contacted_at) {
             $contact->update([
                 'contacted_at' => now(),
-                'contacted_by_leader_id' => $user->id,
+                'contacted_by_main_marketing_id' => $user->id,
             ]);
         }
 
