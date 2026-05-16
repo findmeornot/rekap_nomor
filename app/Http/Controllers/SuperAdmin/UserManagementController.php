@@ -17,11 +17,11 @@ class UserManagementController extends Controller
     public function index(): View
     {
         return view('superadmin.users.index', [
-            'leaders' => User::where('role', User::ROLE_LEADER)
+            'leaders' => User::where('role', User::ROLE_MAIN_MARKETING)
                 ->withCount('subLeaders')
                 ->orderBy('name')
                 ->get(),
-            'subLeaders' => User::where('role', User::ROLE_SUB_LEADER)
+            'subLeaders' => User::where('role', User::ROLE_ASSISTANT_MARKETING)
                 ->with('leader:id,name')
                 ->orderBy('name')
                 ->get(),
@@ -38,8 +38,8 @@ class UserManagementController extends Controller
 
         User::create([
             ...$validated,
-            'role' => User::ROLE_LEADER,
-            'leader_id' => null,
+            'role' => User::ROLE_MAIN_MARKETING,
+            'main_marketing_id' => null,
         ]);
 
         return back()->with('success', 'Leader berhasil dibuat.');
@@ -51,15 +51,15 @@ class UserManagementController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:8'],
-            'leader_id' => [
+            'main_marketing_id' => [
                 'required',
-                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_LEADER)),
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_MAIN_MARKETING)),
             ],
         ]);
 
         User::create([
             ...$validated,
-            'role' => User::ROLE_SUB_LEADER,
+            'role' => User::ROLE_ASSISTANT_MARKETING,
         ]);
 
         return back()->with('success', 'Sub leader berhasil dibuat.');
@@ -67,17 +67,17 @@ class UserManagementController extends Controller
 
     public function assignLeader(Request $request, User $subLeader): RedirectResponse
     {
-        abort_unless($subLeader->role === User::ROLE_SUB_LEADER, 404);
+        abort_unless($subLeader->role === User::ROLE_ASSISTANT_MARKETING, 404);
 
         $validated = $request->validate([
-            'leader_id' => [
+            'main_marketing_id' => [
                 'required',
-                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_LEADER)),
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_MAIN_MARKETING)),
             ],
         ]);
 
         $subLeader->update([
-            'leader_id' => $validated['leader_id'],
+            'main_marketing_id' => $validated['main_marketing_id'],
         ]);
 
         return back()->with('success', 'Leader untuk sub leader berhasil diperbarui.');
@@ -89,7 +89,7 @@ class UserManagementController extends Controller
         $uiFilters = $this->resolveUiFilters($request);
         $selectedLeaderId = $request->integer('leader_id');
 
-        $leaders = User::where('role', User::ROLE_LEADER)
+        $leaders = User::where('role', User::ROLE_MAIN_MARKETING)
             ->withCount('subLeaders')
             ->orderBy('id')
             ->get();
@@ -99,19 +99,19 @@ class UserManagementController extends Controller
         $this->applyListFilters($summaryQuery, $uiFilters);
 
         $summaryRows = $summaryQuery
-            ->selectRaw('leader_id, COUNT(*) as total_contacts, SUM(CASE WHEN contacted_at IS NOT NULL THEN 1 ELSE 0 END) as contacted_contacts, MAX(created_at) as latest_input_at')
-            ->groupBy('leader_id')
+            ->selectRaw('main_marketing_id, COUNT(*) as total_contacts, SUM(CASE WHEN contacted_at IS NOT NULL THEN 1 ELSE 0 END) as contacted_contacts, MAX(created_at) as latest_input_at')
+            ->groupBy('main_marketing_id')
             ->get()
-            ->keyBy('leader_id');
+            ->keyBy('main_marketing_id');
 
         $monthlyContactedRows = Contact::query()
             ->whereNotNull('contacted_at')
             ->whereYear('contacted_at', now()->year)
             ->whereMonth('contacted_at', now()->month)
-            ->selectRaw('leader_id, COUNT(*) as monthly_contacted_count')
-            ->groupBy('leader_id')
+            ->selectRaw('main_marketing_id, COUNT(*) as monthly_contacted_count')
+            ->groupBy('main_marketing_id')
             ->get()
-            ->keyBy('leader_id');
+            ->keyBy('main_marketing_id');
 
         foreach ($leaders as $leader) {
             $row = $summaryRows->get($leader->id);
@@ -138,7 +138,7 @@ class UserManagementController extends Controller
         $this->applyListFilters($contactsQuery, $uiFilters);
 
         if ($selectedLeaderId > 0) {
-            $contactsQuery->where('leader_id', $selectedLeaderId);
+            $contactsQuery->where('main_marketing_id', $selectedLeaderId);
         }
 
         $perPage = (int) $uiFilters['per_page'];
