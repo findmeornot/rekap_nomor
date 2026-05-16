@@ -6,27 +6,29 @@
 - `email` (varchar, unique)
 - `email_verified_at` (timestamp, nullable)
 - `password` (varchar)
-- `role` (varchar, default `sub_leader`) nilai: `superadmin`, `leader`, `sub_leader`
-- `leader_id` (bigint, nullable, FK -> `users.id`, nullOnDelete)
+- `role` (varchar) nilai: `superadmin`, `main_marketing`, `assistant_marketing`
+- `main_marketing_id` (bigint, nullable, FK -> `users.id`, nullOnDelete)
 - `remember_token` (varchar, nullable)
 - `created_at`, `updated_at` (timestamp)
 
 Catatan relasi:
-- `leader` punya banyak `sub_leader` lewat `users.leader_id`
-- `superadmin` tidak butuh `leader_id`
+- `main_marketing` punya banyak `assistant_marketing` lewat `users.main_marketing_id`
+- `superadmin` tidak butuh `main_marketing_id`
 
 ## Tabel `contacts`
 - `id` (bigint, PK)
 - `contact_name` (varchar, nullable)
 - `phone` (varchar, unique)
-- `sub_leader_id` (bigint, FK -> `users.id`, cascadeOnDelete)
-- `leader_id` (bigint, FK -> `users.id`, cascadeOnDelete)
+- `assistant_marketing_id` (bigint, nullable, FK -> `users.id`, nullOnDelete)
+- `main_marketing_id` (bigint, nullable, FK -> `users.id`, nullOnDelete)
+- `contacted_at` (timestamp, nullable)
+- `contacted_by_main_marketing_id` (bigint, nullable, FK -> `users.id`, nullOnDelete)
 - `created_at`, `updated_at` (timestamp)
 
 Aturan penting:
-- `phone` bersifat unik global, sehingga nomor tidak bisa sama antar sub leader.
+- `phone` bersifat unik global, sehingga nomor tidak bisa sama antar assistant marketing.
 
 ## Ringkasan Relasi
-- `users (leader)` 1 --- N `users (sub_leader)`
-- `users (sub_leader)` 1 --- N `contacts`
-- `users (leader)` 1 --- N `contacts`
+- `users (main_marketing)` 1 --- N `users (assistant_marketing)`
+- `users (assistant_marketing)` 1 --- N `contacts`
+- `users (main_marketing)` 1 --- N `contacts`
