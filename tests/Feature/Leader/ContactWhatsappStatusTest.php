@@ -26,8 +26,8 @@ class ContactWhatsappStatusTest extends TestCase
         $contact = Contact::create([
             'contact_name' => 'Test Contact',
             'phone' => '08123456789',
-            'sub_leader_id' => $subLeader->id,
-            'leader_id' => $leader->id,
+            'assistant_marketing_id' => $subLeader->id,
+            'main_marketing_id' => $leader->id,
         ]);
 
         $response = $this->actingAs($leader)
@@ -60,8 +60,8 @@ class ContactWhatsappStatusTest extends TestCase
         $contact = Contact::create([
             'contact_name' => 'Other Contact',
             'phone' => '628123123123',
-            'sub_leader_id' => $subLeaderB->id,
-            'leader_id' => $leaderB->id,
+            'assistant_marketing_id' => $subLeaderB->id,
+            'main_marketing_id' => $leaderB->id,
         ]);
 
         $response = $this->actingAs($leaderA)
