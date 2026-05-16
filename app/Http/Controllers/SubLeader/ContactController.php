@@ -4,6 +4,7 @@ namespace App\Http\Controllers\SubLeader;
 
 use App\Http\Controllers\Controller;
 use App\Models\Contact;
+use App\Models\User;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
@@ -14,10 +15,17 @@ class ContactController extends Controller
 {
     public function index(): View
     {
+        $assistantMarketing = auth()->user();
+        $contactsCount = Contact::where('assistant_marketing_id', $assistantMarketing->id)->count();
+        $target = $assistantMarketing->TARGET_ASSISTANT_MARKETING;
+
         return view('subleader.contacts.index', [
-            'contacts' => Contact::where('sub_leader_id', auth()->id())
+            'contacts' => Contact::where('assistant_marketing_id', auth()->id())
                 ->latest()
                 ->paginate(20),
+            'contactsCount' => $contactsCount,
+            'target' => $target,
+            'progress' => $target > 0 ? min(100, (int) round(($contactsCount / $target) * 100)) : 0,
         ]);
     }
 
@@ -31,9 +39,9 @@ class ContactController extends Controller
 
         $subLeader = auth()->user();
 
-        if (! $subLeader->leader_id) {
+        if (! $subLeader->main_marketing_id) {
             return back()
-                ->withErrors(['phones' => 'Akun sub leader belum memiliki leader. Hubungi superadmin.'])
+                ->withErrors(['phones' => 'Akun assistant marketing belum memiliki Marketing Utama. Hubungi superadmin.'])
                 ->withInput();
         }
 
@@ -50,6 +58,15 @@ class ContactController extends Controller
                 ->withInput();
         }
 
+        $existingContactsCount = Contact::where('assistant_marketing_id', $subLeader->id)->count();
+        $availableSlots = max(0, User::TARGET_ASSISTANT_MARKETING - $existingContactsCount);
+
+        if ($availableSlots === 0) {
+            return back()
+                ->withErrors(['phones' => 'Batas target Assistant Marketing sudah tercapai.'])
+                ->withInput();
+        }
+
         $existingPhones = Contact::whereIn('phone', $phones)->pluck('phone')->flip();
         $batchPhones = [];
         $contactName = $request->string('contact_name')->toString();
@@ -57,8 +74,14 @@ class ContactController extends Controller
 
         $created = 0;
         $skippedDuplicate = 0;
+        $skippedLimit = 0;
 
         foreach ($phones as $phone) {
+            if ($created >= $availableSlots) {
+                $skippedLimit++;
+                continue;
+            }
+
             if (isset($existingPhones[$phone]) || isset($batchPhones[$phone])) {
                 $skippedDuplicate++;
                 continue;
@@ -67,8 +90,8 @@ class ContactController extends Controller
             Contact::create([
                 'contact_name' => $contactName,
                 'phone' => $phone,
-                'sub_leader_id' => $subLeader->id,
-                'leader_id' => $subLeader->leader_id,
+                'assistant_marketing_id' => $subLeader->id,
+                'main_marketing_id' => $subLeader->main_marketing_id,
             ]);
 
             $batchPhones[$phone] = true;
@@ -89,9 +112,9 @@ class ContactController extends Controller
 
         $subLeader = auth()->user();
 
-        if (! $subLeader->leader_id) {
+        if (! $subLeader->main_marketing_id) {
             return back()->withErrors([
-                'file' => 'Akun sub leader belum memiliki leader. Hubungi superadmin.',
+                'file' => 'Akun assistant marketing belum memiliki Marketing Utama. Hubungi superadmin.',
             ]);
         }
 
@@ -100,14 +123,27 @@ class ContactController extends Controller
             return back()->withErrors(['file' => 'File kosong atau format kolom tidak dikenali.']);
         }
 
+        $existingContactsCount = Contact::where('assistant_marketing_id', $subLeader->id)->count();
+        $availableSlots = max(0, User::TARGET_ASSISTANT_MARKETING - $existingContactsCount);
+
+        if ($availableSlots === 0) {
+            return back()->withErrors(['file' => 'Batas target Assistant Marketing sudah tercapai.']);
+        }
+
         $existingPhones = Contact::pluck('phone')->flip();
         $batchPhones = [];
 
         $created = 0;
         $skippedDuplicate = 0;
         $skippedInvalid = 0;
+        $skippedLimit = 0;
 
         foreach ($rows as $row) {
+            if ($created >= $availableSlots) {
+                $skippedLimit++;
+                continue;
+            }
+
             $normalizedPhone = preg_replace('/\D+/', '', (string) ($row['phone'] ?? ''));
 
             if (! $normalizedPhone) {
@@ -125,8 +161,8 @@ class ContactController extends Controller
                     ? trim((string) $row['contact_name'])
                     : null,
                 'phone' => $normalizedPhone,
-                'sub_leader_id' => $subLeader->id,
-                'leader_id' => $subLeader->leader_id,
+                'assistant_marketing_id' => $subLeader->id,
+                'main_marketing_id' => $subLeader->main_marketing_id,
             ]);
 
             $batchPhones[$normalizedPhone] = true;
