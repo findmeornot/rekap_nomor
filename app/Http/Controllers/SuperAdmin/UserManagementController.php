@@ -4,12 +4,14 @@ namespace App\Http\Controllers\SuperAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Contact;
+use App\Models\Team;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
 class UserManagementController extends Controller
@@ -25,7 +27,32 @@ class UserManagementController extends Controller
                 ->with('leader:id,name')
                 ->orderBy('name')
                 ->get(),
+            'teams' => Schema::hasTable('teams') ? Team::withCount('members')->orderBy('name')->get() : collect(),
         ]);
+    }
+
+    public function storeTeam(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255', Rule::unique('teams', 'name')],
+        ]);
+
+        Team::create($validated);
+
+        return back()->with('success', 'Tim berhasil dibuat.');
+    }
+
+    public function assignTeam(Request $request, User $user): RedirectResponse
+    {
+        $validated = $request->validate([
+            'team_id' => ['nullable', Rule::exists('teams', 'id')],
+        ]);
+
+        $user->update([
+            'team_id' => $validated['team_id'] ?? null,
+        ]);
+
+        return back()->with('success', 'Tim user berhasil diperbarui.');
     }
 
     public function storeLeader(Request $request): RedirectResponse
@@ -34,6 +61,7 @@ class UserManagementController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:8'],
+            'team_id' => ['nullable', Rule::exists('teams', 'id')],
         ]);
 
         User::create([
@@ -57,8 +85,15 @@ class UserManagementController extends Controller
             ],
         ]);
 
+        $leader = User::where('role', User::ROLE_MAIN_MARKETING)
+            ->findOrFail($validated['main_marketing_id']);
+
         User::create([
-            ...$validated,
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => $validated['password'],
+            'main_marketing_id' => $leader->id,
+            'team_id' => $leader->team_id,
             'role' => User::ROLE_ASSISTANT_MARKETING,
         ]);
 
@@ -76,8 +111,12 @@ class UserManagementController extends Controller
             ],
         ]);
 
+        $leader = User::where('role', User::ROLE_MAIN_MARKETING)
+            ->findOrFail($validated['main_marketing_id']);
+
         $subLeader->update([
-            'main_marketing_id' => $validated['main_marketing_id'],
+            'main_marketing_id' => $leader->id,
+            'team_id' => $leader->team_id,
         ]);
 
         return back()->with('success', 'Leader untuk sub leader berhasil diperbarui.');
