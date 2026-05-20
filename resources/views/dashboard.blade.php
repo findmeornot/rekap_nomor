@@ -138,15 +138,14 @@
                                 <h3 class="section-title">Diagram Perbandingan Antar Leader</h3>
                                 <p class="section-subtitle">Bandingkan total nomor, sudah dihubungi, dan belum dihubungi untuk setiap leader.</p>
                             </div>
-                            <form method="GET" action="{{ route('dashboard') }}" class="flex items-end gap-2">
-                                <div>
-                                    <label for="leader_chart_month" class="block text-xs font-medium text-slate-600 mb-1">Pilih Bulan</label>
-                                    <input type="month" id="leader_chart_month" name="leader_chart_month" value="{{ $selectedMonth }}" 
-                                        class="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
-                                </div>
-                                <button type="submit" class="px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700">
-                                    Filter
-                                </button>
+                            <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-2">
+                                @foreach(request()->except('leader_chart_date') as $key => $value)
+                                    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                                @endforeach
+                                <label for="leader_chart_date" class="whitespace-nowrap text-sm font-medium text-slate-600">Pilih Tanggal</label>
+                                <input type="date" id="leader_chart_date" name="leader_chart_date" value="{{ $leaderChartDate }}" 
+                                    onchange="this.form.submit()"
+                                    class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                             </form>
                         </div>
                         <div class="mt-4" id="superadminChartContainer">
@@ -165,9 +164,20 @@
                     </div>
 
                     <div class="panel fade-in-up">
-                        <div>
-                            <h3 class="section-title">Diagram Perbandingan Antar Sub Leader</h3>
-                            <p class="section-subtitle">Bandingkan total nomor, sudah dihubungi, dan belum dihubungi untuk setiap sub leader.</p>
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="section-title">Diagram Perbandingan Antar Sub Leader</h3>
+                                <p class="section-subtitle">Bandingkan total nomor, sudah dihubungi, dan belum dihubungi untuk setiap sub leader.</p>
+                            </div>
+                            <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-2">
+                                @foreach(request()->except('sub_leader_chart_date') as $key => $value)
+                                    <input type="hidden" name="{{ $key }}" value="{{ $value }}">
+                                @endforeach
+                                <label for="sub_leader_chart_date" class="whitespace-nowrap text-sm font-medium text-slate-600">Pilih Tanggal</label>
+                                <input type="date" id="sub_leader_chart_date" name="sub_leader_chart_date" value="{{ $subLeaderChartDate }}" 
+                                    onchange="this.form.submit()"
+                                    class="px-3 py-1.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                            </form>
                         </div>
                         <div class="mt-4" id="superadminSubLeaderChartContainer">
                             <canvas id="subLeaderComparisonChart" width="600" height="320"></canvas>
@@ -197,12 +207,10 @@
 
                 const leaderData = @json($leaderComparisonData ?? []);
                 const subLeaderData = @json($subLeaderComparisonData ?? []);
+                const teamComparisonData = @json($teamComparisonData ?? []);
                 const monthlyTotalsData = @json($monthlyTotalsData ?? []);
-                const selectedMonth = @json($selectedMonth);
-                const monthDisplay = new Date(selectedMonth + '-01').toLocaleDateString('id-ID', { 
-                    year: 'numeric', 
-                    month: 'long' 
-                });
+                const leaderMonthDisplay = new Date(@json($leaderChartDate)).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+                const subLeaderMonthDisplay = new Date(@json($subLeaderChartDate)).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
 
                 const renderComparisonChart = (canvasId, containerId, data, title) => {
                     const canvas = document.getElementById(canvasId);
@@ -250,7 +258,7 @@
                             plugins: {
                                 title: {
                                     display: true,
-                                    text: title + ' - ' + monthDisplay,
+                                    text: title,
                                     font: {
                                         size: 14,
                                         weight: '500',
@@ -300,29 +308,8 @@
                     'leaderComparisonChart',
                     'superadminChartContainer',
                     leaderData,
-                    'Perbandingan Leader'
+                    'Perbandingan Leader' + ' (' + leaderMonthDisplay + ')'
                 );
-
-                // Team comparison chart - group sub-leaders by leader
-                const teamData = subLeaderData.reduce((acc, item) => {
-                    const leaderName = item.group;
-                    if (!acc[leaderName]) {
-                        acc[leaderName] = {
-                            label: leaderName,
-                            total: 0,
-                            contacted: 0,
-                            uncontacted: 0,
-                            subLeaders: 0
-                        };
-                    }
-                    acc[leaderName].total += item.total;
-                    acc[leaderName].contacted += item.contacted;
-                    acc[leaderName].uncontacted += item.uncontacted;
-                    acc[leaderName].subLeaders += 1;
-                    return acc;
-                }, {});
-
-                const teamComparisonData = Object.values(teamData);
 
                 renderComparisonChart(
                     'teamComparisonChart',
@@ -335,7 +322,7 @@
                     'subLeaderComparisonChart',
                     'superadminSubLeaderChartContainer',
                     subLeaderData,
-                    'Perbandingan Sub Leader'
+                    'Perbandingan Sub Leader' + ' (' + subLeaderMonthDisplay + ')'
                 );
 
                 const monthlyCanvas = document.getElementById('monthlyTotalsChart');
@@ -535,235 +522,6 @@
                             borderWidth: 1,
                         },
                     ]);
-                }
-            });
-        </script>
-    @endif
-
-    @if ($user->isSuperAdmin())
-        <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
-        <script>
-            document.addEventListener('DOMContentLoaded', function () {
-                const leaderData = @json($leaderComparisonData ?? []);
-                const subLeaderData = @json($subLeaderComparisonData ?? []);
-                const monthlyTotalsData = @json($monthlyTotalsData ?? []);
-                const selectedMonth = @json($selectedMonth);
-                const monthDisplay = new Date(selectedMonth + '-01').toLocaleDateString('id-ID', {
-                    year: 'numeric',
-                    month: 'long',
-                });
-
-                const renderComparisonChart = (canvasId, containerId, data, title) => {
-                    const canvas = document.getElementById(canvasId);
-                    const container = document.getElementById(containerId);
-
-                    if (!canvas || !container) {
-                        return;
-                    }
-
-                    if (!data.length) {
-                        container.innerHTML = '<p class="text-slate-500">Tidak ada data untuk bulan ini.</p>';
-                        return;
-                    }
-
-                    new Chart(canvas, {
-                        type: 'bar',
-                        data: {
-                            labels: data.map(item => item.label),
-                            datasets: [
-                                {
-                                    label: 'Total Nomor',
-                                    data: data.map(item => item.total),
-                                    backgroundColor: 'rgba(59, 130, 246, 0.5)',
-                                    borderColor: 'rgba(59, 130, 246, 1)',
-                                    borderWidth: 1,
-                                },
-                                {
-                                    label: 'Sudah Dihubungi',
-                                    data: data.map(item => item.contacted),
-                                    backgroundColor: 'rgba(34, 197, 94, 0.5)',
-                                    borderColor: 'rgba(34, 197, 94, 1)',
-                                    borderWidth: 1,
-                                },
-                                {
-                                    label: 'Belum Dihubungi',
-                                    data: data.map(item => item.uncontacted),
-                                    backgroundColor: 'rgba(248, 113, 113, 0.5)',
-                                    borderColor: 'rgba(239, 68, 68, 1)',
-                                    borderWidth: 1,
-                                },
-                            ],
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                title: {
-                                    display: true,
-                                    text: title + ' - ' + monthDisplay,
-                                    font: {
-                                        size: 14,
-                                        weight: '500',
-                                    },
-                                    padding: {
-                                        bottom: 20,
-                                    },
-                                },
-                                datalabels: {
-                                    color: '#1e3a8a',
-                                    backgroundColor: 'rgba(219, 234, 254, 0.95)',
-                                    borderColor: 'rgba(147, 197, 253, 1)',
-                                    borderWidth: 1,
-                                    borderRadius: 6,
-                                    padding: {
-                                        top: 2,
-                                        right: 6,
-                                        bottom: 2,
-                                        left: 6,
-                                    },
-                                    anchor: 'end',
-                                    align: 'end',
-                                    offset: 6,
-                                    clamp: true,
-                                    clip: false,
-                                    display: (context) => context.datasetIndex === 0 && Number(context.dataset.data[context.dataIndex]) > 0,
-                                    formatter: (value) => Number(value).toLocaleString('id-ID'),
-                                    font: {
-                                        weight: '600',
-                                        size: 10,
-                                    },
-                                },
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: {
-                                        stepSize: 1,
-                                    },
-                                },
-                            },
-                        },
-                    });
-                };
-
-                renderComparisonChart(
-                    'leaderComparisonChart',
-                    'superadminChartContainer',
-                    leaderData,
-                    'Perbandingan Leader'
-                );
-
-                const teamData = subLeaderData.reduce((acc, item) => {
-                    const leaderName = item.group;
-                    if (!acc[leaderName]) {
-                        acc[leaderName] = {
-                            label: leaderName,
-                            total: 0,
-                            contacted: 0,
-                            uncontacted: 0,
-                            subLeaders: 0,
-                        };
-                    }
-                    acc[leaderName].total += item.total;
-                    acc[leaderName].contacted += item.contacted;
-                    acc[leaderName].uncontacted += item.uncontacted;
-                    acc[leaderName].subLeaders += 1;
-                    return acc;
-                }, {});
-
-                const teamComparisonData = Object.values(teamData);
-
-                renderComparisonChart(
-                    'teamComparisonChart',
-                    'teamComparisonChartContainer',
-                    teamComparisonData,
-                    'Perbandingan Tim'
-                );
-
-                renderComparisonChart(
-                    'subLeaderComparisonChart',
-                    'superadminSubLeaderChartContainer',
-                    subLeaderData,
-                    'Perbandingan Sub Leader'
-                );
-
-                const monthlyCanvas = document.getElementById('monthlyTotalsChart');
-                const monthlyContainer = document.getElementById('monthlyTotalsChartContainer');
-
-                if (monthlyCanvas && monthlyContainer) {
-                    if (!monthlyTotalsData.length) {
-                        monthlyContainer.innerHTML = '<p class="text-slate-500">Belum ada data bulanan untuk ditampilkan.</p>';
-                    } else {
-                        new Chart(monthlyCanvas, {
-                            type: 'bar',
-                            data: {
-                                labels: monthlyTotalsData.map(item => item.label),
-                                datasets: [
-                                    {
-                                        label: 'Total Sudah Dihubungi (Semua Leader)',
-                                        data: monthlyTotalsData.map(item => item.contacted_total),
-                                        backgroundColor: 'rgba(34, 197, 94, 0.5)',
-                                        borderColor: 'rgba(34, 197, 94, 1)',
-                                        borderWidth: 1,
-                                    },
-                                    {
-                                        label: 'Total Input Nomor (Semua Sub Leader)',
-                                        data: monthlyTotalsData.map(item => item.input_total),
-                                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
-                                        borderColor: 'rgba(59, 130, 246, 1)',
-                                        borderWidth: 1,
-                                    },
-                                ],
-                            },
-                            options: {
-                                responsive: true,
-                                plugins: {
-                                    title: {
-                                        display: true,
-                                        text: 'Tren Total Bulanan (12 Bulan Terakhir)',
-                                        font: {
-                                            size: 14,
-                                            weight: '500',
-                                        },
-                                        padding: {
-                                            bottom: 20,
-                                        },
-                                    },
-                                    datalabels: {
-                                        color: '#0f172a',
-                                        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                                        borderColor: 'rgba(203, 213, 225, 1)',
-                                        borderWidth: 1,
-                                        borderRadius: 6,
-                                        padding: {
-                                            top: 2,
-                                            right: 6,
-                                            bottom: 2,
-                                            left: 6,
-                                        },
-                                        anchor: 'end',
-                                        align: 'end',
-                                        offset: 4,
-                                        clamp: true,
-                                        clip: false,
-                                        display: (context) => Number(context.dataset.data[context.dataIndex]) > 0,
-                                        formatter: (value) => Number(value).toLocaleString('id-ID'),
-                                        font: {
-                                            weight: '600',
-                                            size: 10,
-                                        },
-                                    },
-                                },
-                                scales: {
-                                    y: {
-                                        beginAtZero: true,
-                                        ticks: {
-                                            stepSize: 1,
-                                        },
-                                    },
-                                },
-                            },
-                        });
-                    }
                 }
             });
         </script>

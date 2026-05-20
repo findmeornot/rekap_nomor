@@ -1,5 +1,10 @@
 # Skema Database Rekap Nomor
 
+## Tabel `teams`
+- `id` (bigint, PK)
+- `name` (varchar)
+- `created_at`, `updated_at` (timestamp)
+
 ## Tabel `users`
 - `id` (bigint, PK)
 - `name` (varchar)
@@ -7,12 +12,14 @@
 - `email_verified_at` (timestamp, nullable)
 - `password` (varchar)
 - `role` (varchar) nilai: `superadmin`, `main_marketing`, `assistant_marketing`
+- `team_id` (bigint, nullable, FK -> `teams.id`, nullOnDelete)
 - `main_marketing_id` (bigint, nullable, FK -> `users.id`, nullOnDelete)
 - `remember_token` (varchar, nullable)
 - `created_at`, `updated_at` (timestamp)
 
 Catatan relasi:
 - `main_marketing` punya banyak `assistant_marketing` lewat `users.main_marketing_id`
+- `users` boleh berada dalam satu tim lewat `users.team_id`
 - `superadmin` tidak butuh `main_marketing_id`
 
 ## Tabel `contacts`

@@ -30,6 +30,9 @@ Route::middleware(['auth', 'role:superadmin'])
         Route::get('/contacts', [UserManagementController::class, 'contactsIndex'])->name('contacts.index');
         Route::post('/leaders', [UserManagementController::class, 'storeLeader'])->name('leaders.store');
         Route::post('/sub-leaders', [UserManagementController::class, 'storeSubLeader'])->name('sub-leaders.store');
+        Route::post('/teams', [UserManagementController::class, 'storeTeam'])->name('teams.store');
+        Route::patch('/users/{user}/assign-team', [UserManagementController::class, 'assignTeam'])
+            ->name('users.assign-team');
         Route::patch('/sub-leaders/{subLeader}/assign-leader', [UserManagementController::class, 'assignLeader'])
             ->name('sub-leaders.assign-leader');
     });

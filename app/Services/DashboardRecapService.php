@@ -3,11 +3,13 @@
 namespace App\Services;
 
 use App\Models\Contact;
+use App\Models\Team;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardRecapService
 {
@@ -28,11 +30,17 @@ class DashboardRecapService
     {
         $stats = $this->buildSuperAdminStats();
         $meta = $this->buildSuperAdminMeta();
+        
         $selectedMonth = $this->getSelectedMonth($request);
         [$year, $month] = $this->parseYearAndMonth($selectedMonth);
+        
+        $leaderChartDate = $this->getLeaderChartDate($request);
+        $subLeaderChartDate = $this->getSubLeaderChartDate($request);
 
-        $leaderComparisonData = $this->getLeaderComparisonData($year, $month);
-        $subLeaderComparisonData = $this->getSubLeaderComparisonData($year, $month);
+        $leaderComparisonData = $this->getLeaderComparisonDataForDay($leaderChartDate);
+        $subLeaderComparisonData = $this->getSubLeaderComparisonDataForDay($subLeaderChartDate);
+        
+        $teamComparisonData = $this->getTeamComparisonData($year, $month);
         $monthlyTotalsData = $this->buildMonthlyTotalsData($year, $month);
 
         return array_merge($this->emptyPayload(), [
@@ -40,8 +48,11 @@ class DashboardRecapService
             'meta' => $meta,
             'leaderComparisonData' => $leaderComparisonData,
             'subLeaderComparisonData' => $subLeaderComparisonData,
+            'teamComparisonData' => $teamComparisonData,
             'monthlyTotalsData' => $monthlyTotalsData,
             'selectedMonth' => $selectedMonth,
+            'leaderChartDate' => $leaderChartDate,
+            'subLeaderChartDate' => $subLeaderChartDate,
         ]);
     }
 
@@ -164,6 +175,25 @@ class DashboardRecapService
         ];
     }
 
+    private function getLeaderComparisonDataForDay(string $date): Collection
+    {
+        return User::where('role', User::ROLE_MAIN_MARKETING)
+            ->leftJoin('contacts', function ($join) use ($date) {
+                $join->on('users.id', '=', 'contacts.main_marketing_id')
+                    ->whereDate('contacts.created_at', $date);
+            })
+            ->select(
+                'users.id',
+                'users.name',
+                DB::raw('COUNT(contacts.id) as total_count'),
+                DB::raw('SUM(CASE WHEN contacts.contacted_at IS NOT NULL THEN 1 ELSE 0 END) as contacted_count')
+            )
+            ->groupBy('users.id', 'users.name')
+            ->orderByDesc('total_count')
+            ->get()
+            ->map(fn ($item) => $this->mapLeaderComparisonRow($item));
+    }
+
     private function getLeaderComparisonData(int $year, int $month): Collection
     {
         return User::where('role', User::ROLE_MAIN_MARKETING)
@@ -181,17 +211,20 @@ class DashboardRecapService
             ->groupBy('users.id', 'users.name')
             ->orderByDesc('total_count')
             ->get()
-            ->map(function ($item) {
-                $totalCount = (int) $item->total_count;
-                $contactedCount = (int) $item->contacted_count;
+            ->map(fn ($item) => $this->mapLeaderComparisonRow($item));
+    }
 
-                return [
-                    'label' => $item->name,
-                    'total' => $totalCount,
-                    'contacted' => $contactedCount,
-                    'uncontacted' => max($totalCount - $contactedCount, 0),
-                ];
-            });
+    private function mapLeaderComparisonRow(object $item): array
+    {
+        $totalCount = (int) $item->total_count;
+        $contactedCount = (int) $item->contacted_count;
+
+        return [
+            'label' => $item->name,
+            'total' => $totalCount,
+            'contacted' => $contactedCount,
+            'uncontacted' => max($totalCount - $contactedCount, 0),
+        ];
     }
 
     private function getSubLeaderComparisonData(int $year, int $month): Collection
@@ -220,6 +253,76 @@ class DashboardRecapService
                 return [
                     'label' => $item->name,
                     'group' => $item->leader_name ?? 'Tanpa Leader',
+                    'total' => $totalCount,
+                    'contacted' => $contactedCount,
+                    'uncontacted' => max($totalCount - $contactedCount, 0),
+                ];
+            });
+    }
+
+    private function getSubLeaderComparisonDataForDay(string $date): Collection
+    {
+        return User::where('users.role', User::ROLE_ASSISTANT_MARKETING)
+            ->leftJoin('users as leaders', 'users.main_marketing_id', '=', 'leaders.id')
+            ->leftJoin('contacts', function ($join) use ($date) {
+                $join->on('users.id', '=', 'contacts.assistant_marketing_id')
+                    ->whereDate('contacts.created_at', $date);
+            })
+            ->select(
+                'users.id',
+                'users.name',
+                'leaders.name as leader_name',
+                DB::raw('COUNT(contacts.id) as total_count'),
+                DB::raw('SUM(CASE WHEN contacts.contacted_at IS NOT NULL THEN 1 ELSE 0 END) as contacted_count')
+            )
+            ->groupBy('users.id', 'users.name', 'leaders.name')
+            ->orderByDesc('total_count')
+            ->get()
+            ->map(function ($item) {
+                $totalCount = (int) $item->total_count;
+                $contactedCount = (int) $item->contacted_count;
+
+                return [
+                    'label' => $item->name,
+                    'group' => $item->leader_name ?? 'Tanpa Leader',
+                    'total' => $totalCount,
+                    'contacted' => $contactedCount,
+                    'uncontacted' => max($totalCount - $contactedCount, 0),
+                ];
+            });
+    }
+
+    private function getTeamComparisonData(int $year, int $month): Collection
+    {
+        if (! Schema::hasTable('teams')) {
+            return collect();
+        }
+
+        return Team::query()
+            ->leftJoin('users', 'teams.id', '=', 'users.team_id')
+            ->leftJoin('contacts', function ($join) use ($year, $month) {
+                $join->on(function ($query) {
+                    $query->on('contacts.main_marketing_id', '=', 'users.id')
+                        ->orOn('contacts.assistant_marketing_id', '=', 'users.id');
+                })
+                ->whereYear('contacts.created_at', $year)
+                ->whereMonth('contacts.created_at', $month);
+            })
+            ->select(
+                'teams.id',
+                'teams.name',
+                DB::raw('COUNT(DISTINCT contacts.id) as total_count'),
+                DB::raw('COUNT(DISTINCT CASE WHEN contacts.contacted_at IS NOT NULL THEN contacts.id END) as contacted_count')
+            )
+            ->groupBy('teams.id', 'teams.name')
+            ->orderByDesc('total_count')
+            ->get()
+            ->map(function ($item) {
+                $totalCount = (int) $item->total_count;
+                $contactedCount = (int) $item->contacted_count;
+
+                return [
+                    'label' => $item->name,
                     'total' => $totalCount,
                     'contacted' => $contactedCount,
                     'uncontacted' => max($totalCount - $contactedCount, 0),
@@ -327,6 +430,18 @@ class DashboardRecapService
         return $request->input('leader_chart_month', now()->format('Y-m'));
     }
 
+    private function getLeaderChartDate(Request $request): string
+    {
+        $date = $request->input('leader_chart_date', now()->format('Y-m-d'));
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : now()->format('Y-m-d');
+    }
+
+    private function getSubLeaderChartDate(Request $request): string
+    {
+        $date = $request->input('sub_leader_chart_date', now()->format('Y-m-d'));
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) ? $date : now()->format('Y-m-d');
+    }
+
     private function parseYearAndMonth(string $selectedMonth): array
     {
         [$year, $month] = explode('-', $selectedMonth);
@@ -356,6 +471,8 @@ class DashboardRecapService
             'subLeaderDailyTargetData' => [],
             'monthlyTotalsData' => collect(),
             'selectedMonth' => null,
+            'leaderChartDate' => null,
+            'subLeaderChartDate' => null,
         ];
     }
 }

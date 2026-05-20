@@ -46,6 +46,15 @@
                             <x-input-label for="leader_password" value="Password" />
                             <x-text-input id="leader_password" type="password" name="password" class="mt-1 block w-full" required />
                         </div>
+                        <div>
+                            <x-input-label for="leader_team_id" value="Pilih Tim" />
+                            <select id="leader_team_id" name="team_id" class="mt-1 block w-full">
+                                <option value="">-- Tidak ada --</option>
+                                @foreach ($teams as $team)
+                                    <option value="{{ $team->id }}">{{ $team->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                         <x-primary-button>Simpan Leader</x-primary-button>
                     </form>
                 </div>
@@ -75,9 +84,22 @@
                                 @endforeach
                             </select>
                         </div>
+                        <p class="text-sm text-slate-500">Sub leader akan otomatis masuk ke tim yang sama dengan leader yang dipilih.</p>
                         <x-primary-button>Simpan Sub Leader</x-primary-button>
                     </form>
                 </div>
+            </div>
+
+            <div class="panel fade-in-up">
+                <h3 class="section-title">Tambah Tim</h3>
+                <form class="mt-4 space-y-4" method="POST" action="{{ route('superadmin.teams.store') }}">
+                    @csrf
+                    <div>
+                        <x-input-label for="team_name" value="Nama Tim" />
+                        <x-text-input id="team_name" name="name" class="mt-1 block w-full" required />
+                    </div>
+                    <x-primary-button>Simpan Tim</x-primary-button>
+                </form>
             </div>
 
             <div class="panel fade-in-up">
@@ -88,7 +110,9 @@
                             <tr>
                                 <th>Nama</th>
                                 <th>Email</th>
+                                <th>Tim</th>
                                 <th>Jumlah Assistant Marketing</th>
+                                <th>Ubah Tim</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -96,11 +120,25 @@
                                 <tr>
                                     <td>{{ $leader->name }}</td>
                                     <td>{{ $leader->email }}</td>
+                                    <td>{{ $leader->team?->name ?? '-' }}</td>
                                     <td>{{ $leader->sub_leaders_count }}</td>
+                                    <td>
+                                        <form class="flex gap-2" method="POST" action="{{ route('superadmin.users.assign-team', $leader) }}">
+                                            @csrf
+                                            @method('PATCH')
+                                            <select name="team_id" class="text-sm">
+                                                <option value="">-- Tidak ada --</option>
+                                                @foreach ($teams as $team)
+                                                    <option value="{{ $team->id }}" @selected($leader->team_id === $team->id)>{{ $team->name }}</option>
+                                                @endforeach
+                                            </select>
+                                            <button class="btn-subtle px-3 py-2 text-xs">Update</button>
+                                        </form>
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="3" class="px-4 py-4 text-slate-500">Belum ada leader.</td>
+                                    <td colspan="5" class="px-4 py-4 text-slate-500">Belum ada leader.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -110,6 +148,76 @@
 
             <div class="panel fade-in-up">
                 <h3 class="section-title">Daftar Assistant Marketing</h3>
+                <div class="table-wrap mt-4">
+                    <table class="table-clean">
+                        <thead>
+                            <tr>
+                                <th>Nama</th>
+                                <th>Email</th>
+                                <th>Marketing Utama Saat Ini</th>
+                                <th>Tim</th>
+                                <th>Ubah Marketing Utama</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($subLeaders as $subLeader)
+                                <tr>
+                                    <td>{{ $subLeader->name }}</td>
+                                    <td>{{ $subLeader->email }}</td>
+                                    <td>{{ $subLeader->leader?->name ?? '-' }}</td>
+                                    <td>{{ $subLeader->team?->name ?? '-' }}</td>
+                                    <td>
+                                        <form class="flex gap-2" method="POST" action="{{ route('superadmin.sub-leaders.assign-leader', $subLeader) }}">
+                                            @csrf
+                                            @method('PATCH')
+                                            <select name="main_marketing_id" class="text-sm" required>
+                                                @foreach ($leaders as $leader)
+                                                    <option value="{{ $leader->id }}" @selected($subLeader->main_marketing_id === $leader->id)>
+                                                        {{ $leader->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <button class="btn-subtle px-3 py-2 text-xs">
+                                                Update
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" class="px-4 py-4 text-slate-500">Belum ada sub leader.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel fade-in-up">
+                <h3 class="section-title">Daftar Tim</h3>
+                <div class="table-wrap mt-4">
+                    <table class="table-clean">
+                        <thead>
+                            <tr>
+                                <th>Nama Tim</th>
+                                <th>Jumlah Anggota</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($teams as $team)
+                                <tr>
+                                    <td>{{ $team->name }}</td>
+                                    <td>{{ $team->members_count }}</td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="2" class="px-4 py-4 text-slate-500">Belum ada tim.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
                 <div class="table-wrap mt-4">
                     <table class="table-clean">
                         <thead>
