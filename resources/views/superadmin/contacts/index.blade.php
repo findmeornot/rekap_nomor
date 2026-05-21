@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div>
             <h2 class="text-2xl font-semibold leading-tight text-slate-900">
-                Rekap Data Per Leader
+                Rekap Data Per Marketing Utama
             </h2>
             <p class="mt-1 text-sm text-slate-600">Super admin dapat melihat semua data nomor berdasarkan leader.</p>
         </div>

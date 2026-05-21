@@ -8,7 +8,7 @@
                 <p class="mt-1 text-sm text-slate-600">Kelola role leader dan sub leader beserta relasinya.</p>
             </div>
             <a href="{{ route('superadmin.contacts.index') }}" class="btn-main">
-                Lihat Data Per Leader
+                Lihat Data Per Marketing Utama
             </a>
         </div>
     </x-slot>

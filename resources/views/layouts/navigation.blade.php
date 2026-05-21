@@ -18,7 +18,7 @@
             'icon' => 'users',
         ];
         $moduleItems[] = [
-            'label' => 'Data Per Leader',
+            'label' => 'Data Per Marketing Utama',
             'href' => route('superadmin.contacts.index'),
             'active' => request()->routeIs('superadmin.contacts.*'),
             'icon' => 'list',

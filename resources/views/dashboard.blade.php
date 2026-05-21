@@ -128,7 +128,7 @@
                         <p class="section-subtitle">Kelola struktur tim dan distribusi data dari satu tempat.</p>
                         <div class="mt-5 flex flex-wrap gap-3">
                             <a href="{{ route('superadmin.users.index') }}" class="btn-main">Kelola Leader &amp; Sub Leader</a>
-                            <a href="{{ route('superadmin.contacts.index') }}" class="btn-subtle">Lihat Data Per Leader</a>
+                            <a href="{{ route('superadmin.contacts.index') }}" class="btn-subtle">Lihat Data Per Marketing Utama</a>
                         </div>
                     </div>
 
@@ -199,18 +199,29 @@
     </div>
 
     @if ($user->isSuperAdmin())
+        <script id="superadmin-data" type="application/json">
+            {!! json_encode([
+                'leaderData' => $leaderComparisonData ?? [],
+                'subLeaderData' => $subLeaderComparisonData ?? [],
+                'teamComparisonData' => $teamComparisonData ?? [],
+                'monthlyTotalsData' => $monthlyTotalsData ?? [],
+                'leaderChartDate' => $leaderChartDate ?? '',
+                'subLeaderChartDate' => $subLeaderChartDate ?? ''
+            ]) !!}
+        </script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
                 Chart.register(ChartDataLabels);
 
-                const leaderData = @json($leaderComparisonData ?? []);
-                const subLeaderData = @json($subLeaderComparisonData ?? []);
-                const teamComparisonData = @json($teamComparisonData ?? []);
-                const monthlyTotalsData = @json($monthlyTotalsData ?? []);
-                const leaderMonthDisplay = new Date(@json($leaderChartDate)).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
-                const subLeaderMonthDisplay = new Date(@json($subLeaderChartDate)).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+                const dataStore = JSON.parse(document.getElementById('superadmin-data').textContent);
+                const leaderData = dataStore.leaderData;
+                const subLeaderData = dataStore.subLeaderData;
+                const teamComparisonData = dataStore.teamComparisonData;
+                const monthlyTotalsData = dataStore.monthlyTotalsData;
+                const leaderMonthDisplay = new Date(dataStore.leaderChartDate).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
+                const subLeaderMonthDisplay = new Date(dataStore.subLeaderChartDate).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' });
 
                 const renderComparisonChart = (canvasId, containerId, data, title) => {
                     const canvas = document.getElementById(canvasId);
@@ -413,16 +424,29 @@
     @endif
 
     @if ($user->isLeader() || $user->isSubLeader())
+        <script id="leader-data" type="application/json">
+            {!! json_encode([
+                'mainTargetData' => $mainTargetData ?? [],
+                'mainDailyData' => $mainDailyData ?? [],
+                'mainDailyTargetData' => $mainDailyTargetData ?? [],
+                'assistantDailyData' => $assistantDailyData ?? [],
+                'assistantDailyTargetData' => $assistantDailyTargetData ?? [],
+                'subLeaderDailyData' => $subLeaderDailyData ?? [],
+                'subLeaderDailyTargetData' => $subLeaderDailyTargetData ?? [],
+                'dailyLabels' => $stats['daily_labels'] ?? []
+            ]) !!}
+        </script>
         <script>
             document.addEventListener('DOMContentLoaded', function () {
-                const mainTargetData = @json($mainTargetData ?? []);
-                const mainDailyData = @json($mainDailyData ?? []);
-                const mainDailyTargetData = @json($mainDailyTargetData ?? []);
-                const assistantDailyData = @json($assistantDailyData ?? []);
-                const assistantDailyTargetData = @json($assistantDailyTargetData ?? []);
-                const subLeaderDailyData = @json($subLeaderDailyData ?? []);
-                const subLeaderDailyTargetData = @json($subLeaderDailyTargetData ?? []);
-                const dailyLabels = @json($stats['daily_labels'] ?? []);
+                const dataStore = JSON.parse(document.getElementById('leader-data').textContent);
+                const mainTargetData = dataStore.mainTargetData;
+                const mainDailyData = dataStore.mainDailyData;
+                const mainDailyTargetData = dataStore.mainDailyTargetData;
+                const assistantDailyData = dataStore.assistantDailyData;
+                const assistantDailyTargetData = dataStore.assistantDailyTargetData;
+                const subLeaderDailyData = dataStore.subLeaderDailyData;
+                const subLeaderDailyTargetData = dataStore.subLeaderDailyTargetData;
+                const dailyLabels = dataStore.dailyLabels;
 
                 const renderBarChart = (canvasId, chartTitle, labels, datasets) => {
                     const canvas = document.getElementById(canvasId);
