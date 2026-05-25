@@ -143,6 +143,7 @@
                         @endif
                     </p>
                 @endif
+                <div id="contact-status-message" class="mt-3 hidden" role="status" aria-live="polite"></div>
                 <div class="table-wrap mt-4">
                     <table class="table-clean">
                         <thead>
@@ -162,15 +163,26 @@
                                     <td class="font-medium">{{ $contact->phone }}</td>
                                     <td>{{ $contact->subLeader?->name ?? '-' }}</td>
                                     <td>
-                                        @if ($contact->contacted_at)
-                                            <span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                                                Sudah Dihubungi
-                                            </span>
-                                        @else
-                                            <span class="inline-flex items-center rounded-full border border-slate-300 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                                                Belum Dihubungi
-                                            </span>
-                                        @endif
+                                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                                            <select
+                                                class="contact-status-select rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700"
+                                                data-url="{{ route('leader.contacts.status', $contact) }}"
+                                                data-contact-id="{{ $contact->id }}"
+                                                data-original-status="{{ $contact->isContacted() ? 'contacted' : 'uncontacted' }}"
+                                                aria-label="Ubah status kontak"
+                                            >
+                                                <option value="uncontacted" @selected(! $contact->isContacted())>Belum Dihubungi</option>
+                                                <option value="contacted" @selected($contact->isContacted())>Sudah Dihubungi</option>
+                                            </select>
+                                            <button
+                                                type="button"
+                                                class="contact-status-save inline-flex items-center rounded-lg border border-amber-600 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100"
+                                                data-dirty="false"
+                                                aria-label="Simpan perubahan status kontak"
+                                            >
+                                                Save Status
+                                            </button>
+                                        </div>
                                     </td>
                                     <td>{{ $contact->created_at->format('d M Y H:i') }}</td>
                                     <td>
@@ -180,7 +192,7 @@
                                             rel="noopener noreferrer"
                                             class="inline-flex items-center rounded-lg border border-blue-600 bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700"
                                         >
-                                            {{ $contact->contacted_at ? 'Hubungi Lagi' : 'Hubungi' }}
+                                            {{ $contact->isContacted() ? 'Hubungi Lagi' : 'Hubungi' }}
                                         </a>
                                     </td>
                                 </tr>
@@ -210,50 +222,136 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const data = @json($monthlyContactedData);
-            console.log('Monthly data:', data);
+        const data = @json($monthlyContactedData);
+        const statusMessage = document.getElementById('contact-status-message');
 
-            const container = document.getElementById('chartContainer');
-            if (!container) {
-                console.log('Container not found');
+        const showStatusMessage = (message, type) => {
+            if (!statusMessage) {
                 return;
             }
 
+            statusMessage.textContent = message;
+            statusMessage.classList.remove('hidden', 'status-success', 'status-error');
+            statusMessage.classList.add(type === 'success' ? 'status-success' : 'status-error');
+        };
+
+        const container = document.getElementById('chartContainer');
+        if (container) {
             if (data.length === 0) {
                 container.innerHTML = 'Tidak ada data untuk ditampilkan.';
-                return;
-            }
+            } else {
+                const canvas = document.createElement('canvas');
+                canvas.width = 400;
+                canvas.height = 200;
+                container.innerHTML = '';
+                container.appendChild(canvas);
 
-            // Create canvas
-            const canvas = document.createElement('canvas');
-            canvas.width = 400;
-            canvas.height = 200;
-            container.innerHTML = '';
-            container.appendChild(canvas);
-
-            new Chart(canvas, {
-                type: 'bar',
-                data: {
-                    labels: data.map(item => item.label),
-                    datasets: [{
-                        label: 'Nomor Dihubungi',
-                        data: data.map(item => item.count),
-                        backgroundColor: 'rgba(59, 130, 246, 0.5)',
-                        borderColor: 'rgba(59, 130, 246, 1)',
-                        borderWidth: 1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                stepSize: 1
+                new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(item => item.label),
+                        datasets: [{
+                            label: 'Nomor Dihubungi',
+                            data: data.map(item => item.count),
+                            backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
                             }
                         }
                     }
+                });
+            }
+        }
+
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+
+        const setSaveState = (select) => {
+            const saveButton = select.closest('tr')?.querySelector('.contact-status-save');
+            if (!saveButton) {
+                return;
+            }
+
+            const isDirty = select.value !== select.dataset.originalStatus;
+            saveButton.dataset.dirty = isDirty ? 'true' : 'false';
+            saveButton.setAttribute('aria-disabled', isDirty ? 'false' : 'true');
+            saveButton.classList.toggle('opacity-50', !isDirty);
+            saveButton.classList.toggle('cursor-not-allowed', !isDirty);
+            saveButton.classList.toggle('border-slate-300', !isDirty);
+            saveButton.classList.toggle('bg-slate-100', !isDirty);
+            saveButton.classList.toggle('text-slate-400', !isDirty);
+            saveButton.classList.toggle('hover:bg-amber-100', isDirty);
+        };
+
+        document.querySelectorAll('.contact-status-select').forEach((select) => {
+            const saveButton = select.closest('tr')?.querySelector('.contact-status-save');
+
+            if (!saveButton) {
+                return;
+            }
+
+            setSaveState(select);
+
+            select.addEventListener('change', () => {
+                setSaveState(select);
+            });
+
+            saveButton.addEventListener('click', async () => {
+                const previousStatus = select.dataset.originalStatus;
+                const nextStatus = select.value;
+
+                if (select.value === select.dataset.originalStatus) {
+                    return;
+                }
+
+                select.disabled = true;
+                saveButton.dataset.saving = 'true';
+                saveButton.setAttribute('aria-disabled', 'true');
+                saveButton.classList.add('opacity-50', 'cursor-not-allowed');
+                saveButton.textContent = 'Menyimpan...';
+
+                try {
+                    const response = await fetch(select.dataset.url, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                        },
+                        body: JSON.stringify({ status: nextStatus }),
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Gagal memperbarui status');
+                    }
+
+                    const payload = await response.json();
+
+                    if (!payload.ok) {
+                        throw new Error('Gagal memperbarui status');
+                    }
+
+                    select.dataset.originalStatus = nextStatus;
+                    saveButton.textContent = 'Tersimpan';
+                    setSaveState(select);
+                    showStatusMessage('Status berhasil disimpan.', 'success');
+                } catch (error) {
+                    select.value = previousStatus;
+                    setSaveState(select);
+                    showStatusMessage('Gagal memperbarui status. Silakan coba lagi.', 'error');
+                } finally {
+                    select.disabled = false;
+                    saveButton.dataset.saving = 'false';
+                    saveButton.textContent = 'Save Status';
                 }
             });
         });

@@ -5,7 +5,7 @@
                 <h2 class="text-2xl font-semibold leading-tight text-slate-900">
                     Manajemen User
                 </h2>
-                <p class="mt-1 text-sm text-slate-600">Kelola role leader dan sub leader beserta relasinya.</p>
+                <p class="mt-1 text-sm text-slate-600">Kelola tim, Marketing Utama, dan Asisten Marketing.</p>
             </div>
             <a href="{{ route('superadmin.contacts.index') }}" class="btn-main">
                 Lihat Data Per Marketing Utama
@@ -48,14 +48,14 @@
                         </div>
                         <div>
                             <x-input-label for="leader_team_id" value="Pilih Tim" />
-                            <select id="leader_team_id" name="team_id" class="mt-1 block w-full">
-                                <option value="">-- Tidak ada --</option>
+                            <select id="leader_team_id" name="team_id" class="mt-1 block w-full" required>
+                                <option value="">-- Pilih Tim --</option>
                                 @foreach ($teams as $team)
                                     <option value="{{ $team->id }}">{{ $team->name }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <x-primary-button>Simpan Leader</x-primary-button>
+                        <x-primary-button>Simpan Marketing Utama</x-primary-button>
                     </form>
                 </div>
 
@@ -76,16 +76,15 @@
                             <x-text-input id="sub_password" type="password" name="password" class="mt-1 block w-full" required />
                         </div>
                         <div>
-                            <x-input-label for="main_marketing_id" value="Pilih Marketing Utama" />
-                            <select id="main_marketing_id" name="main_marketing_id" class="mt-1 block w-full" required>
-                                <option value="">-- Pilih --</option>
-                                @foreach ($leaders as $leader)
-                                    <option value="{{ $leader->id }}">{{ $leader->name }}</option>
+                            <x-input-label for="sub_team_id" value="Pilih Tim" />
+                            <select id="sub_team_id" name="team_id" class="mt-1 block w-full" required>
+                                <option value="">-- Pilih Tim --</option>
+                                @foreach ($teams as $team)
+                                    <option value="{{ $team->id }}">{{ $team->name }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <p class="text-sm text-slate-500">Sub leader akan otomatis masuk ke tim yang sama dengan leader yang dipilih.</p>
-                        <x-primary-button>Simpan Sub Leader</x-primary-button>
+                        <x-primary-button>Simpan Asisten Marketing</x-primary-button>
                     </form>
                 </div>
             </div>
@@ -111,7 +110,7 @@
                                 <th>Nama</th>
                                 <th>Email</th>
                                 <th>Tim</th>
-                                <th>Jumlah Assistant Marketing</th>
+                                <th>Jumlah Asisten (tim sama)</th>
                                 <th>Ubah Tim</th>
                             </tr>
                         </thead>
@@ -154,9 +153,8 @@
                             <tr>
                                 <th>Nama</th>
                                 <th>Email</th>
-                                <th>Marketing Utama Saat Ini</th>
                                 <th>Tim</th>
-                                <th>Ubah Marketing Utama</th>
+                                <th>Ubah Tim</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -164,22 +162,20 @@
                                 <tr>
                                     <td>{{ $subLeader->name }}</td>
                                     <td>{{ $subLeader->email }}</td>
-                                    <td>{{ $subLeader->leader?->name ?? '-' }}</td>
                                     <td>{{ $subLeader->team?->name ?? '-' }}</td>
                                     <td>
-                                        <form class="flex gap-2" method="POST" action="{{ route('superadmin.sub-leaders.assign-leader', $subLeader) }}">
+                                        <form class="flex gap-2" method="POST" action="{{ route('superadmin.users.assign-team', $subLeader) }}">
                                             @csrf
                                             @method('PATCH')
-                                            <select name="main_marketing_id" class="text-sm" required>
-                                                @foreach ($leaders as $leader)
-                                                    <option value="{{ $leader->id }}" @selected($subLeader->main_marketing_id === $leader->id)>
-                                                        {{ $leader->name }}
+                                            <select name="team_id" class="text-sm" required>
+                                                <option value="">-- Pilih Tim --</option>
+                                                @foreach ($teams as $team)
+                                                    <option value="{{ $team->id }}" @selected($subLeader->team_id === $team->id)>
+                                                        {{ $team->name }}
                                                     </option>
                                                 @endforeach
                                             </select>
-                                            <button class="btn-subtle px-3 py-2 text-xs">
-                                                Update
-                                            </button>
+                                            <button class="btn-subtle px-3 py-2 text-xs">Update</button>
                                         </form>
                                     </td>
                                 </tr>
@@ -212,48 +208,6 @@
                             @empty
                                 <tr>
                                     <td colspan="2" class="px-4 py-4 text-slate-500">Belum ada tim.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-                <div class="table-wrap mt-4">
-                    <table class="table-clean">
-                        <thead>
-                            <tr>
-                                <th>Nama</th>
-                                <th>Email</th>
-                                <th>Marketing Utama Saat Ini</th>
-                                <th>Ubah Marketing Utama</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($subLeaders as $subLeader)
-                                <tr>
-                                    <td>{{ $subLeader->name }}</td>
-                                    <td>{{ $subLeader->email }}</td>
-                                    <td>{{ $subLeader->leader?->name ?? '-' }}</td>
-                                    <td>
-                                        <form class="flex gap-2" method="POST" action="{{ route('superadmin.sub-leaders.assign-leader', $subLeader) }}">
-                                            @csrf
-                                            @method('PATCH')
-                                            <select name="main_marketing_id" class="text-sm" required>
-                                                @foreach ($leaders as $leader)
-                                                    <option value="{{ $leader->id }}" @selected($subLeader->main_marketing_id === $leader->id)>
-                                                        {{ $leader->name }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                            <button class="btn-subtle px-3 py-2 text-xs">
-                                                Update
-                                            </button>
-                                        </form>
-                                    </td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="4" class="px-4 py-4 text-slate-500">Belum ada sub leader.</td>
                                 </tr>
                             @endforelse
                         </tbody>

@@ -23,6 +23,12 @@
             'active' => request()->routeIs('superadmin.contacts.*'),
             'icon' => 'list',
         ];
+        $moduleItems[] = [
+            'label' => 'Import Kontak',
+            'href' => route('superadmin.import'),
+            'active' => request()->routeIs('superadmin.import*'),
+            'icon' => 'upload',
+        ];
     }
 
     if (Auth::user()->isLeader()) {

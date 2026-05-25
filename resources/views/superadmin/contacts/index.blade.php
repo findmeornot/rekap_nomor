@@ -264,7 +264,7 @@
                                     <td>{{ $contact->contact_name ?? '-' }}</td>
                                     <td class="font-medium">{{ $contact->phone }}</td>
                                     <td>
-                                        @if ($contact->contacted_at)
+                                        @if ($contact->isContacted())
                                             <span class="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                                                 Sudah Dihubungi
                                             </span>
