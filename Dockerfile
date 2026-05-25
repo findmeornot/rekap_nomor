@@ -1,12 +1,15 @@
-FROM php:8.3
+FROM php:8.3-apache
 
-WORKDIR /var/www
+WORKDIR /var/www/html
 
 RUN apt-get update && apt-get install -y \
-    git curl zip unzip libpng-dev libjpeg-dev libfreetype6-dev libzip-dev
+    git curl zip unzip \
+    libpng-dev libjpeg-dev libfreetype6-dev libzip-dev
 
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd pdo pdo_mysql zip
+
+RUN a2enmod rewrite
 
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
@@ -16,6 +19,6 @@ RUN composer install --no-dev --optimize-autoloader
 
 RUN chmod -R 775 storage bootstrap/cache
 
-EXPOSE 8000
+RUN sed -i 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf
 
-CMD sh -c "php artisan config:clear && php artisan serve --host=0.0.0.0 --port=8000"
+EXPOSE 80
