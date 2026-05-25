@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Contact;
 use App\Models\Team;
 use App\Models\User;
+use App\Services\ContactImportService;
 use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
@@ -42,6 +43,39 @@ class UserManagementController extends Controller
         return back()->with('success', 'Tim berhasil dibuat.');
     }
 
+    public function importForm(): View
+    {
+        return view('superadmin.import', [
+            'teams' => Team::orderBy('name')->get(),
+        ]);
+    }
+
+    public function import(Request $request, ContactImportService $contactImportService): RedirectResponse
+    {
+        $validated = $request->validate([
+            'team_id' => ['required', Rule::exists('teams', 'id')],
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:5120'],
+        ]);
+
+        $rows = $contactImportService->extractRows($request->file('file'));
+        if (empty($rows)) {
+            return back()
+                ->withErrors(['file' => 'File kosong atau format kolom tidak dikenali.'])
+                ->withInput();
+        }
+
+        $summary = $contactImportService->importRows($rows, [
+            'team_id' => (int) $validated['team_id'],
+            'input_by' => auth()->id(),
+            'assistant_marketing_id' => null,
+            'main_marketing_id' => null,
+        ]);
+
+        return back()
+            ->with('success', "Import selesai. Berhasil: {$summary['created']}, Duplikat: {$summary['skipped_duplicate']}, Tidak valid: {$summary['skipped_invalid']}.")
+            ->with('import_summary', $summary);
+    }
+
     public function assignTeam(Request $request, User $user): RedirectResponse
     {
         $validated = $request->validate([
@@ -61,7 +95,7 @@ class UserManagementController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:8'],
-            'team_id' => ['nullable', Rule::exists('teams', 'id')],
+            'team_id' => ['required', Rule::exists('teams', 'id')],
         ]);
 
         User::create([
@@ -79,21 +113,15 @@ class UserManagementController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:8'],
-            'main_marketing_id' => [
-                'required',
-                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_MAIN_MARKETING)),
-            ],
+            'team_id' => ['required', Rule::exists('teams', 'id')],
         ]);
-
-        $leader = User::where('role', User::ROLE_MAIN_MARKETING)
-            ->findOrFail($validated['main_marketing_id']);
 
         User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => $validated['password'],
-            'main_marketing_id' => $leader->id,
-            'team_id' => $leader->team_id,
+            'main_marketing_id' => null,
+            'team_id' => $validated['team_id'],
             'role' => User::ROLE_ASSISTANT_MARKETING,
         ]);
 
@@ -138,15 +166,15 @@ class UserManagementController extends Controller
         $this->applyListFilters($summaryQuery, $uiFilters);
 
         $summaryRows = $summaryQuery
-            ->selectRaw('main_marketing_id, COUNT(*) as total_contacts, SUM(CASE WHEN contacted_at IS NOT NULL THEN 1 ELSE 0 END) as contacted_contacts, MAX(created_at) as latest_input_at')
+            ->selectRaw("main_marketing_id, COUNT(*) as total_contacts, SUM(CASE WHEN status = '".Contact::STATUS_CONTACTED."' THEN 1 ELSE 0 END) as contacted_contacts, MAX(created_at) as latest_input_at")
             ->groupBy('main_marketing_id')
             ->get()
             ->keyBy('main_marketing_id');
 
         $monthlyContactedRows = Contact::query()
-            ->whereNotNull('contacted_at')
-            ->whereYear('contacted_at', now()->year)
-            ->whereMonth('contacted_at', now()->month)
+            ->where('status', Contact::STATUS_CONTACTED)
+            ->whereYear('status_updated_at', now()->year)
+            ->whereMonth('status_updated_at', now()->month)
             ->selectRaw('main_marketing_id, COUNT(*) as monthly_contacted_count')
             ->groupBy('main_marketing_id')
             ->get()
@@ -288,11 +316,11 @@ class UserManagementController extends Controller
         }
 
         if ($uiFilters['status'] === 'contacted') {
-            $query->whereNotNull('contacted_at');
+            $query->where('status', Contact::STATUS_CONTACTED);
         }
 
         if ($uiFilters['status'] === 'uncontacted') {
-            $query->whereNull('contacted_at');
+            $query->where('status', Contact::STATUS_UNCONTACTED);
         }
     }
 }

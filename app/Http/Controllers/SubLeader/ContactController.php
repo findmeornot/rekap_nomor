@@ -5,11 +5,11 @@ namespace App\Http\Controllers\SubLeader;
 use App\Http\Controllers\Controller;
 use App\Models\Contact;
 use App\Models\User;
+use App\Services\ContactImportService;
+use App\Support\PhoneNumber;
 use Illuminate\Contracts\View\View;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
-use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class ContactController extends Controller
 {
@@ -39,9 +39,9 @@ class ContactController extends Controller
 
         $subLeader = auth()->user();
 
-        if (! $subLeader->main_marketing_id) {
+        if (! $subLeader->team_id) {
             return back()
-                ->withErrors(['phones' => 'Akun assistant marketing belum memiliki Marketing Utama. Hubungi superadmin.'])
+                ->withErrors(['phones' => 'Akun belum memiliki tim. Hubungi superadmin untuk assign tim.'])
                 ->withInput();
         }
 
@@ -54,47 +54,32 @@ class ContactController extends Controller
 
         if (empty($phones)) {
             return back()
-                ->withErrors(['phones' => 'Nomor tidak valid.'])
+                ->withErrors(['phones' => PhoneNumber::validationMessage()])
                 ->withInput();
         }
 
-        $existingContactsCount = Contact::where('assistant_marketing_id', $subLeader->id)->count();
-        $availableSlots = max(0, User::TARGET_ASSISTANT_MARKETING - $existingContactsCount);
-
-        if ($availableSlots === 0) {
-            return back()
-                ->withErrors(['phones' => 'Batas target Assistant Marketing sudah tercapai.'])
-                ->withInput();
-        }
-
-        $existingPhones = Contact::whereIn('phone', $phones)->pluck('phone')->flip();
+        $periodKey = Contact::activePeriodKey();
+        $existingNormalized = Contact::query()
+            ->where('period_key', $periodKey)
+            ->whereIn('normalized_phone', $phones)
+            ->pluck('normalized_phone')
+            ->flip();
         $batchPhones = [];
         $contactName = $request->string('contact_name')->toString();
         $contactName = $contactName !== '' ? $contactName : null;
 
         $created = 0;
         $skippedDuplicate = 0;
-        $skippedLimit = 0;
 
-        foreach ($phones as $phone) {
-            if ($created >= $availableSlots) {
-                $skippedLimit++;
-                continue;
-            }
-
-            if (isset($existingPhones[$phone]) || isset($batchPhones[$phone])) {
+        foreach ($phones as $normalizedPhone) {
+            if (isset($existingNormalized[$normalizedPhone]) || isset($batchPhones[$normalizedPhone])) {
                 $skippedDuplicate++;
                 continue;
             }
 
-            Contact::create([
-                'contact_name' => $contactName,
-                'phone' => $phone,
-                'assistant_marketing_id' => $subLeader->id,
-                'main_marketing_id' => $subLeader->main_marketing_id,
-            ]);
+            Contact::create($this->contactAttributes($subLeader, $normalizedPhone, $contactName));
 
-            $batchPhones[$phone] = true;
+            $batchPhones[$normalizedPhone] = true;
             $created++;
         }
 
@@ -104,7 +89,7 @@ class ContactController extends Controller
         );
     }
 
-    public function import(Request $request): RedirectResponse
+    public function import(Request $request, ContactImportService $contactImportService): RedirectResponse
     {
         $request->validate([
             'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:5120'],
@@ -112,155 +97,46 @@ class ContactController extends Controller
 
         $subLeader = auth()->user();
 
-        if (! $subLeader->main_marketing_id) {
+        if (! $subLeader->team_id) {
             return back()->withErrors([
-                'file' => 'Akun assistant marketing belum memiliki Marketing Utama. Hubungi superadmin.',
+                'file' => 'Akun belum memiliki tim. Hubungi superadmin untuk assign tim.',
             ]);
         }
 
-        $rows = $this->extractRows($request->file('file'));
+        $rows = $contactImportService->extractRows($request->file('file'));
         if (empty($rows)) {
             return back()->withErrors(['file' => 'File kosong atau format kolom tidak dikenali.']);
         }
 
-        $existingContactsCount = Contact::where('assistant_marketing_id', $subLeader->id)->count();
-        $availableSlots = max(0, User::TARGET_ASSISTANT_MARKETING - $existingContactsCount);
-
-        if ($availableSlots === 0) {
-            return back()->withErrors(['file' => 'Batas target Assistant Marketing sudah tercapai.']);
-        }
-
-        $existingPhones = Contact::pluck('phone')->flip();
-        $batchPhones = [];
-
-        $created = 0;
-        $skippedDuplicate = 0;
-        $skippedInvalid = 0;
-        $skippedLimit = 0;
-
-        foreach ($rows as $row) {
-            if ($created >= $availableSlots) {
-                $skippedLimit++;
-                continue;
-            }
-
-            $normalizedPhone = preg_replace('/\D+/', '', (string) ($row['phone'] ?? ''));
-
-            if (! $normalizedPhone) {
-                $skippedInvalid++;
-                continue;
-            }
-
-            if (isset($existingPhones[$normalizedPhone]) || isset($batchPhones[$normalizedPhone])) {
-                $skippedDuplicate++;
-                continue;
-            }
-
-            Contact::create([
-                'contact_name' => isset($row['contact_name']) && trim((string) $row['contact_name']) !== ''
-                    ? trim((string) $row['contact_name'])
-                    : null,
-                'phone' => $normalizedPhone,
-                'assistant_marketing_id' => $subLeader->id,
-                'main_marketing_id' => $subLeader->main_marketing_id,
-            ]);
-
-            $batchPhones[$normalizedPhone] = true;
-            $created++;
-        }
+        $summary = $contactImportService->importRows($rows, [
+            'team_id' => $subLeader->team_id,
+            'input_by' => $subLeader->id,
+            'assistant_marketing_id' => $subLeader->id,
+            'main_marketing_id' => null,
+        ]);
 
         return back()->with(
             'success',
-            "Import selesai. Berhasil: {$created}, Duplikat: {$skippedDuplicate}, Tidak valid: {$skippedInvalid}."
+            "Import selesai. Berhasil: {$summary['created']}, Duplikat: {$summary['skipped_duplicate']}, Tidak valid: {$summary['skipped_invalid']}."
         );
     }
 
     /**
-     * @return array<int, array{contact_name: string|null, phone: string|null}>
+     * @return array<string, mixed>
      */
-    private function extractRows(UploadedFile $file): array
+    private function contactAttributes(User $subLeader, string $normalizedPhone, ?string $contactName): array
     {
-        $extension = strtolower((string) $file->getClientOriginalExtension());
-
-        $rawRows = match ($extension) {
-            'csv', 'txt' => $this->extractCsvRows($file),
-            'xlsx', 'xls' => $this->extractSpreadsheetRows($file),
-            default => [],
-        };
-
-        return $this->normalizeRows($rawRows);
-    }
-
-    /**
-     * @return array<int, array<int, mixed>>
-     */
-    private function extractCsvRows(UploadedFile $file): array
-    {
-        $handle = fopen($file->getRealPath(), 'r');
-        if (! $handle) {
-            return [];
-        }
-
-        $rows = [];
-        while (($data = fgetcsv($handle)) !== false) {
-            $rows[] = $data;
-        }
-        fclose($handle);
-
-        return $rows;
-    }
-
-    /**
-     * @return array<int, array<int, mixed>>
-     */
-    private function extractSpreadsheetRows(UploadedFile $file): array
-    {
-        $spreadsheet = IOFactory::load($file->getRealPath());
-        $sheet = $spreadsheet->getActiveSheet();
-
-        return $sheet->toArray(null, true, true, false);
-    }
-
-    /**
-     * @param array<int, array<int, mixed>> $rawRows
-     * @return array<int, array{contact_name: string|null, phone: string|null}>
-     */
-    private function normalizeRows(array $rawRows): array
-    {
-        if (empty($rawRows)) {
-            return [];
-        }
-
-        $header = array_map(
-            fn ($value) => strtolower(trim((string) $value)),
-            $rawRows[0]
-        );
-
-        $phoneIndex = null;
-        $nameIndex = null;
-
-        foreach ($header as $index => $column) {
-            if (in_array($column, ['phone', 'nomor', 'no hp', 'nohp', 'number'], true)) {
-                $phoneIndex = $index;
-            }
-            if (in_array($column, ['name', 'nama', 'contact_name', 'kontak'], true)) {
-                $nameIndex = $index;
-            }
-        }
-
-        if ($phoneIndex === null) {
-            return [];
-        }
-
-        $rows = [];
-        foreach (array_slice($rawRows, 1) as $row) {
-            $rows[] = [
-                'contact_name' => $nameIndex !== null ? (string) ($row[$nameIndex] ?? '') : null,
-                'phone' => (string) ($row[$phoneIndex] ?? ''),
-            ];
-        }
-
-        return $rows;
+        return [
+            'contact_name' => $contactName,
+            'phone' => $normalizedPhone,
+            'normalized_phone' => $normalizedPhone,
+            'period_key' => Contact::activePeriodKey(),
+            'team_id' => $subLeader->team_id,
+            'assistant_marketing_id' => $subLeader->id,
+            'input_by' => $subLeader->id,
+            'main_marketing_id' => null,
+            'status' => Contact::STATUS_UNCONTACTED,
+        ];
     }
 
     /**
@@ -279,8 +155,13 @@ class ContactController extends Controller
                 continue;
             }
 
-            $normalizedPhone = preg_replace('/\D+/', '', $cleanToken);
-            if (! $normalizedPhone) {
+            if (! PhoneNumber::isValid($cleanToken)) {
+                $invalidCount++;
+                continue;
+            }
+
+            $normalizedPhone = PhoneNumber::normalize($cleanToken);
+            if ($normalizedPhone === null) {
                 $invalidCount++;
                 continue;
             }
@@ -290,4 +171,5 @@ class ContactController extends Controller
 
         return [$phones, $invalidCount];
     }
+
 }

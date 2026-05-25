@@ -7,6 +7,7 @@ use App\Models\Contact;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -20,10 +21,16 @@ class ContactController extends Controller
         $filters = $this->resolveDateFilter($request);
         $uiFilters = $this->resolveUiFilters($request);
         $selectedAssistantMarketingId = $request->integer('assistant_marketing_id');
-        $subLeaders = $user->subLeaders()
+        $subLeaders = User::query()
+            ->where('role', User::ROLE_ASSISTANT_MARKETING)
+            ->when(
+                $user->team_id,
+                fn (Builder $query) => $query->where('team_id', $user->team_id),
+                fn (Builder $query) => $query->whereRaw('1 = 0')
+            )
             ->withCount([
                 'contactsEntered as contacts_entered_count' => function (Builder $query) use ($user, $filters, $uiFilters): void {
-                    $query->where('main_marketing_id', $user->id);
+                    $this->applyLeaderContactScope($query, $user);
                     $this->applyDateFilter($query, $filters);
                     $this->applyListFilters($query, $uiFilters);
                 },
@@ -36,7 +43,7 @@ class ContactController extends Controller
             $selectedAssistantMarketingId = null;
         }
 
-        $contactsQuery = Contact::where('main_marketing_id', $user->id)
+        $contactsQuery = $this->scopedContacts($user)
             ->with('subLeader:id,name')
             ->latest();
         $this->applyDateFilter($contactsQuery, $filters);
@@ -48,32 +55,38 @@ class ContactController extends Controller
 
         $perPage = (int) $uiFilters['per_page'];
 
-        $totalContactsCount = Contact::where('main_marketing_id', $user->id)->count();
-        $totalContactedCount = Contact::where('main_marketing_id', $user->id)
-            ->whereNotNull('contacted_at')
+        $totalContactsCount = $this->scopedContacts($user)->count();
+        $totalContactedCount = $this->scopedContacts($user)
+            ->where('status', Contact::STATUS_CONTACTED)
             ->count();
-        $contactedThisMonthCount = Contact::where('main_marketing_id', $user->id)
-            ->whereNotNull('contacted_at')
-            ->whereYear('contacted_at', now()->year)
-            ->whereMonth('contacted_at', now()->month)
+        $contactedThisMonthCount = $this->scopedContacts($user)
+            ->where('status', Contact::STATUS_CONTACTED)
+            ->whereYear('status_updated_at', now()->year)
+            ->whereMonth('status_updated_at', now()->month)
             ->count();
 
-        $monthlyContactedData = Contact::where('main_marketing_id', $user->id)
-            ->whereNotNull('contacted_at')
-            ->selectRaw('YEAR(contacted_at) as year, MONTH(contacted_at) as month, COUNT(*) as count')
-            ->groupBy('year', 'month')
-            ->orderBy('year')
-            ->orderBy('month')
-            ->get()
-            ->map(function ($item) {
-                return [
-                    'label' => Carbon::create($item->year, $item->month)->format('M Y'),
-                    'count' => $item->count,
-                ];
-            });
+        $monthlyContactedData = $this->scopedContacts($user)
+            ->where('status', Contact::STATUS_CONTACTED)
+            ->whereNotNull('status_updated_at')
+            ->get(['status_updated_at'])
+            ->groupBy(fn ($contact) => $contact->status_updated_at->format('Y-m'))
+            ->sortKeys()
+            ->map(fn ($contacts, $key) => [
+                'label' => Carbon::createFromFormat('Y-m', $key)->format('M Y'),
+                'count' => $contacts->count(),
+            ])
+            ->values();
+
+        $personalHandledCount = $user->team_id
+            ? Contact::query()
+                ->where('team_id', $user->team_id)
+                ->where('status', Contact::STATUS_CONTACTED)
+                ->where('status_updated_by', $user->id)
+                ->count()
+            : 0;
 
         $target = User::TARGET_MAIN_MARKETING;
-        $progress = $target > 0 ? (int) round(($totalContactedCount / $target) * 100) : 0;
+        $progress = $target > 0 ? (int) round(($personalHandledCount / $target) * 100) : 0;
 
         return view('leader.contacts.index', [
             'subLeaders' => $subLeaders,
@@ -87,6 +100,7 @@ class ContactController extends Controller
             'monthlyContactedData' => $monthlyContactedData,
             'target' => $target,
             'progress' => $progress,
+            'personalHandledCount' => $personalHandledCount,
         ]);
     }
 
@@ -96,7 +110,15 @@ class ContactController extends Controller
         $filters = $this->resolveDateFilter($request);
         $uiFilters = $this->resolveUiFilters($request);
         $selectedAssistantMarketingId = $request->integer('assistant_marketing_id');
-        $allowedSubLeaderIds = $user->subLeaders()->pluck('id')->all();
+        $allowedSubLeaderIds = User::query()
+            ->where('role', User::ROLE_ASSISTANT_MARKETING)
+            ->when(
+                $user->team_id,
+                fn (Builder $query) => $query->where('team_id', $user->team_id),
+                fn (Builder $query) => $query->whereRaw('1 = 0')
+            )
+            ->pluck('id')
+            ->all();
         if ($selectedAssistantMarketingId > 0 && ! in_array($selectedAssistantMarketingId, $allowedSubLeaderIds, true)) {
             $selectedAssistantMarketingId = null;
         }
@@ -107,7 +129,7 @@ class ContactController extends Controller
             $handle = fopen('php://output', 'w');
             fputcsv($handle, ['Nama Kontak', 'Nomor', 'Assistant Marketing', 'Status', 'Tanggal Input']);
 
-            $contactsQuery = Contact::where('main_marketing_id', $user->id)
+            $contactsQuery = $this->scopedContacts($user)
                 ->with('subLeader:id,name')
                 ->orderByDesc('created_at');
 
@@ -124,7 +146,7 @@ class ContactController extends Controller
                             $contact->contact_name ?? '-',
                             $contact->phone,
                             $contact->subLeader?->name ?? '-',
-                            $contact->contacted_at ? 'Sudah Dihubungi' : 'Belum Dihubungi',
+                            $contact->statusLabel(),
                             $contact->created_at->format('Y-m-d H:i:s'),
                         ]);
                     }
@@ -140,16 +162,65 @@ class ContactController extends Controller
     {
         $user = auth()->user();
 
-        abort_unless($contact->main_marketing_id === $user->id, 404);
+        abort_unless($this->leaderCanAccessContact($user, $contact), 404);
 
-        if (! $contact->contacted_at) {
-            $contact->update([
-                'contacted_at' => now(),
-                'contacted_by_main_marketing_id' => $user->id,
-            ]);
-        }
+        $contact->applyStatus($user, Contact::STATUS_CONTACTED);
 
         return redirect()->away($contact->whatsapp_url);
+    }
+
+    public function updateStatus(Contact $contact, Request $request): JsonResponse
+    {
+        $user = auth()->user();
+
+        abort_unless($this->leaderCanAccessContact($user, $contact), 404);
+
+        $validated = $request->validate([
+            'status' => ['required', 'in:contacted,uncontacted'],
+        ]);
+
+        $status = Contact::statusFromInput($validated['status']);
+        $contact->applyStatus($user, $status);
+
+        return response()->json([
+            'ok' => true,
+            'status' => $validated['status'],
+            'label' => $contact->fresh()->statusLabel(),
+        ]);
+    }
+
+    /**
+     * @return Builder<Contact>
+     */
+    private function scopedContacts(User $user): Builder
+    {
+        $query = Contact::query();
+        $this->applyLeaderContactScope($query, $user);
+
+        return $query;
+    }
+
+    /**
+     * @param Builder<Contact> $query
+     */
+    private function applyLeaderContactScope(Builder $query, User $user): void
+    {
+        if (! $user->team_id) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->where('team_id', $user->team_id);
+    }
+
+    private function leaderCanAccessContact(User $user, Contact $contact): bool
+    {
+        if (! $user->team_id || ! $contact->team_id) {
+            return false;
+        }
+
+        return (int) $contact->team_id === (int) $user->team_id;
     }
 
     /**
@@ -246,11 +317,11 @@ class ContactController extends Controller
         }
 
         if ($uiFilters['status'] === 'contacted') {
-            $query->whereNotNull('contacted_at');
+            $query->where('status', Contact::STATUS_CONTACTED);
         }
 
         if ($uiFilters['status'] === 'uncontacted') {
-            $query->whereNull('contacted_at');
+            $query->where('status', Contact::STATUS_UNCONTACTED);
         }
     }
 }
