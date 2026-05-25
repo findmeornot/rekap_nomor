@@ -58,10 +58,28 @@ class DashboardRecapService
 
     private function getMainMarketingDashboardData(User $user): array
     {
-        $contacts = Contact::where('main_marketing_id', $user->id)->count();
-        $contacted = Contact::where('main_marketing_id', $user->id)->whereNotNull('contacted_at')->count();
+        $teamContacts = Contact::query()
+            ->when(
+                $user->team_id,
+                fn ($query) => $query->where('team_id', $user->team_id),
+                fn ($query) => $query->whereRaw('1 = 0')
+            );
 
-        $assistantSubLeaders = User::where('main_marketing_id', $user->id)
+        $contacts = (clone $teamContacts)->count();
+        $contacted = (clone $teamContacts)->where('status', Contact::STATUS_CONTACTED)->count();
+
+        $personalHandled = (clone $teamContacts)
+            ->where('status', Contact::STATUS_CONTACTED)
+            ->where('status_updated_by', $user->id)
+            ->count();
+
+        $assistantSubLeaders = User::query()
+            ->where('role', User::ROLE_ASSISTANT_MARKETING)
+            ->when(
+                $user->team_id,
+                fn ($query) => $query->where('team_id', $user->team_id),
+                fn ($query) => $query->whereRaw('1 = 0')
+            )
             ->withCount(['contactsEntered as contacts_entered_count'])
             ->orderByDesc('contacts_entered_count')
             ->get();
@@ -73,20 +91,21 @@ class DashboardRecapService
             ];
         })->all();
 
-        $mainTargetData = $this->buildMainTargetData($contacted);
+        $mainTargetData = $this->buildMainTargetData($personalHandled);
         $stats = $this->buildMainMarketingStats($contacts, $contacted, $assistantSubLeaders->count(), $mainTargetData['progress']);
 
         $dateLabels = $this->buildDateLabels(7);
         $mainDailyData = $this->pluckDailyCounts(
-            Contact::where('main_marketing_id', $user->id)
-                ->whereNotNull('contacted_at'),
-            'contacted_at',
+            (clone $teamContacts)
+                ->where('status', Contact::STATUS_CONTACTED)
+                ->where('status_updated_by', $user->id)
+                ->whereNotNull('status_updated_at'),
+            'status_updated_at',
             $dateLabels
         );
 
         $assistantDailyData = $this->pluckDailyCounts(
-            Contact::where('main_marketing_id', $user->id)
-                ->whereNotNull('assistant_marketing_id'),
+            (clone $teamContacts)->whereNotNull('assistant_marketing_id'),
             'created_at',
             $dateLabels
         );
@@ -186,7 +205,7 @@ class DashboardRecapService
                 'users.id',
                 'users.name',
                 DB::raw('COUNT(contacts.id) as total_count'),
-                DB::raw('SUM(CASE WHEN contacts.contacted_at IS NOT NULL THEN 1 ELSE 0 END) as contacted_count')
+                DB::raw("SUM(CASE WHEN contacts.status = '".Contact::STATUS_CONTACTED."' THEN 1 ELSE 0 END) as contacted_count")
             )
             ->groupBy('users.id', 'users.name')
             ->orderByDesc('total_count')
@@ -206,7 +225,7 @@ class DashboardRecapService
                 'users.id',
                 'users.name',
                 DB::raw('COUNT(contacts.id) as total_count'),
-                DB::raw('SUM(CASE WHEN contacts.contacted_at IS NOT NULL THEN 1 ELSE 0 END) as contacted_count')
+                DB::raw("SUM(CASE WHEN contacts.status = '".Contact::STATUS_CONTACTED."' THEN 1 ELSE 0 END) as contacted_count")
             )
             ->groupBy('users.id', 'users.name')
             ->orderByDesc('total_count')
@@ -241,7 +260,7 @@ class DashboardRecapService
                 'users.name',
                 'leaders.name as leader_name',
                 DB::raw('COUNT(contacts.id) as total_count'),
-                DB::raw('SUM(CASE WHEN contacts.contacted_at IS NOT NULL THEN 1 ELSE 0 END) as contacted_count')
+                DB::raw("SUM(CASE WHEN contacts.status = '".Contact::STATUS_CONTACTED."' THEN 1 ELSE 0 END) as contacted_count")
             )
             ->groupBy('users.id', 'users.name', 'leaders.name')
             ->orderByDesc('total_count')
@@ -273,7 +292,7 @@ class DashboardRecapService
                 'users.name',
                 'leaders.name as leader_name',
                 DB::raw('COUNT(contacts.id) as total_count'),
-                DB::raw('SUM(CASE WHEN contacts.contacted_at IS NOT NULL THEN 1 ELSE 0 END) as contacted_count')
+                DB::raw("SUM(CASE WHEN contacts.status = '".Contact::STATUS_CONTACTED."' THEN 1 ELSE 0 END) as contacted_count")
             )
             ->groupBy('users.id', 'users.name', 'leaders.name')
             ->orderByDesc('total_count')
@@ -312,7 +331,7 @@ class DashboardRecapService
                 'teams.id',
                 'teams.name',
                 DB::raw('COUNT(DISTINCT contacts.id) as total_count'),
-                DB::raw('COUNT(DISTINCT CASE WHEN contacts.contacted_at IS NOT NULL THEN contacts.id END) as contacted_count')
+                DB::raw("COUNT(DISTINCT CASE WHEN contacts.status = '".Contact::STATUS_CONTACTED."' THEN contacts.id END) as contacted_count")
             )
             ->groupBy('teams.id', 'teams.name')
             ->orderByDesc('total_count')
@@ -336,9 +355,10 @@ class DashboardRecapService
         $endMonth = now()->endOfMonth();
 
         $contactedRows = Contact::query()
-            ->whereNotNull('contacted_at')
-            ->whereBetween('contacted_at', [$startMonth, $endMonth])
-            ->selectRaw('YEAR(contacted_at) as year, MONTH(contacted_at) as month, COUNT(*) as total_count')
+            ->where('status', Contact::STATUS_CONTACTED)
+            ->whereNotNull('status_updated_at')
+            ->whereBetween('status_updated_at', [$startMonth, $endMonth])
+            ->selectRaw('YEAR(status_updated_at) as year, MONTH(status_updated_at) as month, COUNT(*) as total_count')
             ->groupBy('year', 'month')
             ->get();
 

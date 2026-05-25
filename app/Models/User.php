@@ -26,7 +26,7 @@ class User extends Authenticatable
     public const ROLE_MAIN_MARKETING = self::ROLE_LEADER;
     public const ROLE_ASSISTANT_MARKETING = self::ROLE_SUB_LEADER;
 
-    public const TARGET_MAIN_MARKETING = 400;
+    public const TARGET_MAIN_MARKETING = 300;
     public const TARGET_ASSISTANT_MARKETING = 150;
 
     /**

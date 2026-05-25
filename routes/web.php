@@ -28,6 +28,8 @@ Route::middleware(['auth', 'role:superadmin'])
     ->group(function (): void {
         Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
         Route::get('/contacts', [UserManagementController::class, 'contactsIndex'])->name('contacts.index');
+        Route::get('/import', [UserManagementController::class, 'importForm'])->name('import');
+        Route::post('/import', [UserManagementController::class, 'import'])->name('import.store');
         Route::post('/leaders', [UserManagementController::class, 'storeLeader'])->name('leaders.store');
         Route::post('/sub-leaders', [UserManagementController::class, 'storeSubLeader'])->name('sub-leaders.store');
         Route::post('/teams', [UserManagementController::class, 'storeTeam'])->name('teams.store');
@@ -44,6 +46,7 @@ Route::middleware(['auth', 'role:main_marketing'])
         Route::get('/contacts', [LeaderContactController::class, 'index'])->name('contacts.index');
         Route::get('/contacts/export', [LeaderContactController::class, 'export'])->name('contacts.export');
         Route::get('/contacts/{contact}/whatsapp', [LeaderContactController::class, 'whatsapp'])->name('contacts.whatsapp');
+        Route::patch('/contacts/{contact}/status', [LeaderContactController::class, 'updateStatus'])->name('contacts.status');
         Route::get('/requests', [LeaderNumberRequestController::class, 'index'])->name('requests.index');
         Route::post('/requests', [LeaderNumberRequestController::class, 'store'])->name('requests.store');
         Route::patch('/requests/{numberRequest}/approve', [LeaderNumberRequestController::class, 'approve'])->name('requests.approve');
