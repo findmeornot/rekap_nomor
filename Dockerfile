@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y \
 
 # install PHP extension penting (INI FIX GD)
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd pdo pdo_mysql
+    && docker-php-ext-install gd zip pdo pdo_mysql
 
 # install composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
