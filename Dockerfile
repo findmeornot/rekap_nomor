@@ -39,8 +39,7 @@ RUN composer install --no-dev --optimize-autoloader
 # copy hasil vite build
 COPY --from=frontend /app/public/build ./public/build
 
-RUN mkdir -p storage/logs storage/framework/views storage/framework/cache storage/framework/sessions bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache
+RUN chmod -R 775 storage bootstrap/cache
 
 RUN sed -i 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf
 
