@@ -1,3 +1,22 @@
+# =========================
+# Stage 1 — Build Frontend
+# =========================
+FROM node:20 AS frontend
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY . .
+
+RUN npm run build
+
+
+# =========================
+# Stage 2 — PHP Apache
+# =========================
 FROM php:8.3-apache
 
 WORKDIR /var/www/html
@@ -16,6 +35,9 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY . .
 
 RUN composer install --no-dev --optimize-autoloader
+
+# copy hasil vite build
+COPY --from=frontend /app/public/build ./public/build
 
 RUN chmod -R 775 storage bootstrap/cache
 
