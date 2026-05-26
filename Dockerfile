@@ -36,7 +36,8 @@ COPY . .
 
 RUN composer install --no-dev --optimize-autoloader
 
-RUN mkdir -p storage/framework/cache/data \
+RUN mkdir -p \
+    storage/framework/cache/data \
     storage/framework/sessions \
     storage/framework/views \
     storage/logs \
@@ -49,12 +50,16 @@ RUN chmod -R 775 storage bootstrap/cache
 # copy hasil vite build
 COPY --from=frontend /app/public/build ./public/build
 
-RUN chmod -R 775 storage bootstrap/cache
-
-RUN sed -i 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf
+RUN sed -i 's!/var/www/html!/var/www/html/public!g' \
+    /etc/apache2/sites-available/000-default.conf
 
 RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
 EXPOSE 80
 
-CMD ["apache2-foreground"]
+CMD php artisan config:clear && \
+    php artisan cache:clear && \
+    php artisan view:clear && \
+    php artisan migrate --force && \
+    php artisan db:seed --class=SuperAdminSeeder --force && \
+    apache2-foreground
