@@ -36,6 +36,16 @@ COPY . .
 
 RUN composer install --no-dev --optimize-autoloader
 
+RUN mkdir -p storage/framework/cache/data \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache
+
+RUN chown -R www-data:www-data storage bootstrap/cache
+
+RUN chmod -R 775 storage bootstrap/cache
+
 # copy hasil vite build
 COPY --from=frontend /app/public/build ./public/build
 
