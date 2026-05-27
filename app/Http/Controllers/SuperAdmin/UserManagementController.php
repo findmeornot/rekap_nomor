@@ -104,7 +104,7 @@ class UserManagementController extends Controller
             'main_marketing_id' => null,
         ]);
 
-        return back()->with('success', 'Leader berhasil dibuat.');
+        return back()->with('success', 'Marketing Utama berhasil dibuat.');
     }
 
     public function storeSubLeader(Request $request): RedirectResponse
@@ -125,7 +125,7 @@ class UserManagementController extends Controller
             'role' => User::ROLE_ASSISTANT_MARKETING,
         ]);
 
-        return back()->with('success', 'Sub leader berhasil dibuat.');
+        return back()->with('success', 'Asisten Marketing berhasil dibuat.');
     }
 
     public function assignLeader(Request $request, User $subLeader): RedirectResponse
@@ -322,5 +322,28 @@ class UserManagementController extends Controller
         if ($uiFilters['status'] === 'uncontacted') {
             $query->where('status', Contact::STATUS_UNCONTACTED);
         }
+    }
+
+    public function destroy(User $user): RedirectResponse
+    {
+        // Only allow deleting marketing users (leaders or assistants)
+        if (!in_array($user->role, [User::ROLE_MAIN_MARKETING, User::ROLE_ASSISTANT_MARKETING], true)) {
+            return back()->withErrors(['user' => 'Hanya user marketing yang dapat dihapus.']);
+        }
+
+        // If deleting a main marketing (leader), detach it from its sub-leaders and contacts
+        if ($user->role === User::ROLE_MAIN_MARKETING) {
+            User::where('main_marketing_id', $user->id)->update(['main_marketing_id' => null]);
+            Contact::where('main_marketing_id', $user->id)->update(['main_marketing_id' => null]);
+        }
+
+        // If deleting an assistant marketing, detach it from contacts
+        if ($user->role === User::ROLE_ASSISTANT_MARKETING) {
+            Contact::where('assistant_marketing_id', $user->id)->update(['assistant_marketing_id' => null]);
+        }
+
+        $user->delete();
+
+        return back()->with('success', 'User marketing berhasil dihapus.');
     }
 }
