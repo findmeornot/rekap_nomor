@@ -6,6 +6,7 @@
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
         <title>{{ config('app.name', 'Top Number') }}</title>
+        <link rel="icon" type="image/png" href="{{ asset('images/disen-ril-removebg-preview.png') }}">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
