@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
 
         <title>{{ config('app.name', 'Top Number') }}</title>
-        <link rel="icon" type="image/png" href="{{ asset('images/disen-ril-removebg-preview.png') }}">
+        <link rel="icon" type="image/png" href="{{ asset('images/favicon.png.png') }}">
 
         <!-- Fonts -->
         <link rel="preconnect" href="https://fonts.bunny.net">
