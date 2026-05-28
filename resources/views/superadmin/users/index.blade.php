@@ -112,7 +112,6 @@
                                 <th>Tim</th>
                                 <th>Jumlah Asisten (tim sama)</th>
                                 <th>Ubah Tim</th>
-                                <th>Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -135,13 +134,6 @@
                                             <button class="btn-subtle px-3 py-2 text-xs">Update</button>
                                         </form>
                                     </td>
-                                    <td>
-                                        <form method="POST" action="{{ route('superadmin.users.destroy', $leader) }}" onsubmit="return confirm('Hapus leader ini? Semua relasi akan dilepas.');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn-subtle px-3 py-2 text-xs text-red-600">Hapus</button>
-                                        </form>
-                                    </td>
                                 </tr>
                             @empty
                                 <tr>
@@ -153,40 +145,6 @@
                 </div>
             </div>
 
-            @if(!empty($trashedLeaders) && $trashedLeaders->isNotEmpty())
-                <div class="panel fade-in-up">
-                    <h3 class="section-title">Terhapus - Marketing Utama</h3>
-                    <div class="table-wrap mt-4">
-                        <table class="table-clean">
-                            <thead>
-                                <tr>
-                                    <th>Nama</th>
-                                    <th>Email</th>
-                                    <th>Tim</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($trashedLeaders as $t)
-                                    <tr>
-                                        <td>{{ $t->name }}</td>
-                                        <td>{{ $t->email }}</td>
-                                        <td>{{ $t->team?->name ?? '-' }}</td>
-                                        <td>
-                                            <form method="POST" action="{{ route('superadmin.users.restore', $t->id) }}">
-                                                @csrf
-                                                @method('PATCH')
-                                                <button type="submit" class="btn-subtle px-3 py-2 text-xs">Restore</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            @endif
-
             <div class="panel fade-in-up">
                 <h3 class="section-title">Daftar Assistant Marketing</h3>
                 <div class="table-wrap mt-4">
@@ -197,7 +155,6 @@
                                 <th>Email</th>
                                 <th>Tim</th>
                                 <th>Ubah Tim</th>
-                                <th>Aksi</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -221,13 +178,6 @@
                                             <button class="btn-subtle px-3 py-2 text-xs">Update</button>
                                         </form>
                                     </td>
-                                    <td>
-                                        <form method="POST" action="{{ route('superadmin.users.destroy', $subLeader) }}" onsubmit="return confirm('Hapus asisten marketing ini? Semua relasi akan dilepas.');">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="btn-subtle px-3 py-2 text-xs text-red-600">Hapus</button>
-                                        </form>
-                                    </td>
                                 </tr>
                             @empty
                                 <tr>
@@ -238,40 +188,6 @@
                     </table>
                 </div>
             </div>
-
-            @if(!empty($trashedSubLeaders) && $trashedSubLeaders->isNotEmpty())
-                <div class="panel fade-in-up">
-                    <h3 class="section-title">Terhapus - Assistant Marketing</h3>
-                    <div class="table-wrap mt-4">
-                        <table class="table-clean">
-                            <thead>
-                                <tr>
-                                    <th>Nama</th>
-                                    <th>Email</th>
-                                    <th>Tim</th>
-                                    <th>Aksi</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach($trashedSubLeaders as $t)
-                                    <tr>
-                                        <td>{{ $t->name }}</td>
-                                        <td>{{ $t->email }}</td>
-                                        <td>{{ $t->team?->name ?? '-' }}</td>
-                                        <td>
-                                            <form method="POST" action="{{ route('superadmin.users.restore', $t->id) }}">
-                                                @csrf
-                                                @method('PATCH')
-                                                <button type="submit" class="btn-subtle px-3 py-2 text-xs">Restore</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            @endif
 
             <div class="panel fade-in-up">
                 <h3 class="section-title">Daftar Tim</h3>

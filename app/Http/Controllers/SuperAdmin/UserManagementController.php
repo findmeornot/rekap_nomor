@@ -14,30 +14,20 @@ use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class UserManagementController extends Controller
 {
     public function index(): View
     {
-        $leaders = User::where('role', User::ROLE_MAIN_MARKETING)
-            ->withCount('subLeaders')
-            ->orderBy('name')
-            ->get();
-
-        $subLeaders = User::where('role', User::ROLE_ASSISTANT_MARKETING)
-            ->with('leader:id,name')
-            ->orderBy('name')
-            ->get();
-
-        $trashedLeaders = User::onlyTrashed()->where('role', User::ROLE_MAIN_MARKETING)->orderBy('name')->get();
-        $trashedSubLeaders = User::onlyTrashed()->where('role', User::ROLE_ASSISTANT_MARKETING)->orderBy('name')->get();
-
         return view('superadmin.users.index', [
-            'leaders' => $leaders,
-            'subLeaders' => $subLeaders,
-            'trashedLeaders' => $trashedLeaders,
-            'trashedSubLeaders' => $trashedSubLeaders,
+            'leaders' => User::where('role', User::ROLE_MAIN_MARKETING)
+                ->withCount('subLeaders')
+                ->orderBy('name')
+                ->get(),
+            'subLeaders' => User::where('role', User::ROLE_ASSISTANT_MARKETING)
+                ->with('leader:id,name')
+                ->orderBy('name')
+                ->get(),
             'teams' => Schema::hasTable('teams') ? Team::withCount('members')->orderBy('name')->get() : collect(),
         ]);
     }
@@ -341,43 +331,19 @@ class UserManagementController extends Controller
             return back()->withErrors(['user' => 'Hanya user marketing yang dapat dihapus.']);
         }
 
-        // If model uses SoftDeletes, prefer soft-delete so relations remain intact.
-        $usesSoftDeletes = in_array(SoftDeletes::class, class_uses_recursive($user), true);
-
-        if ($usesSoftDeletes) {
-            $user->delete();
-        } else {
-            // If deleting a main marketing (leader), detach it from its sub-leaders and contacts
-            if ($user->role === User::ROLE_MAIN_MARKETING) {
-                User::where('main_marketing_id', $user->id)->update(['main_marketing_id' => null]);
-                Contact::where('main_marketing_id', $user->id)->update(['main_marketing_id' => null]);
-            }
-
-            // If deleting an assistant marketing, detach it from contacts
-            if ($user->role === User::ROLE_ASSISTANT_MARKETING) {
-                Contact::where('assistant_marketing_id', $user->id)->update(['assistant_marketing_id' => null]);
-            }
-
-            $user->delete();
+        // If deleting a main marketing (leader), detach it from its sub-leaders and contacts
+        if ($user->role === User::ROLE_MAIN_MARKETING) {
+            User::where('main_marketing_id', $user->id)->update(['main_marketing_id' => null]);
+            Contact::where('main_marketing_id', $user->id)->update(['main_marketing_id' => null]);
         }
+
+        // If deleting an assistant marketing, detach it from contacts
+        if ($user->role === User::ROLE_ASSISTANT_MARKETING) {
+            Contact::where('assistant_marketing_id', $user->id)->update(['assistant_marketing_id' => null]);
+        }
+
+        $user->delete();
 
         return back()->with('success', 'User marketing berhasil dihapus.');
-    }
-
-    public function restore(string $id): RedirectResponse
-    {
-        $user = User::withTrashed()->findOrFail($id);
-
-        if (!in_array($user->role, [User::ROLE_MAIN_MARKETING, User::ROLE_ASSISTANT_MARKETING], true)) {
-            return back()->withErrors(['user' => 'Hanya user marketing yang dapat direstore.']);
-        }
-
-        if (!method_exists($user, 'restore') && !in_array(SoftDeletes::class, class_uses_recursive($user), true)) {
-            return back()->withErrors(['user' => 'Restore tidak didukung pada model ini.']);
-        }
-
-        $user->restore();
-
-        return back()->with('success', 'User berhasil dipulihkan.');
     }
 }
