@@ -37,6 +37,8 @@ Route::middleware(['auth', 'role:superadmin'])
             ->name('users.assign-team');
         Route::patch('/sub-leaders/{subLeader}/assign-leader', [UserManagementController::class, 'assignLeader'])
             ->name('sub-leaders.assign-leader');
+        Route::delete('/users/{user}', [UserManagementController::class, 'destroy'])->name('users.destroy');
+        Route::patch('/users/{id}/restore', [UserManagementController::class, 'restore'])->name('users.restore');
     });
 
 Route::middleware(['auth', 'role:main_marketing'])
