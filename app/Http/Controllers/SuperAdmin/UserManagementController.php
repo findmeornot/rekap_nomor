@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use Illuminate\Contracts\View\View;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
@@ -324,10 +325,17 @@ class UserManagementController extends Controller
         }
     }
 
-    public function destroy(User $user): RedirectResponse
+    public function destroy(Request $request, User $user): RedirectResponse|JsonResponse
     {
         // Only allow deleting marketing users (leaders or assistants)
         if (!in_array($user->role, [User::ROLE_MAIN_MARKETING, User::ROLE_ASSISTANT_MARKETING], true)) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'ok' => false,
+                    'message' => 'Hanya user marketing yang dapat dihapus.',
+                ], 403);
+            }
+
             return back()->withErrors(['user' => 'Hanya user marketing yang dapat dihapus.']);
         }
 
@@ -343,6 +351,13 @@ class UserManagementController extends Controller
         }
 
         $user->delete();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'ok' => true,
+                'message' => 'Data user berhasil dihapus.',
+            ]);
+        }
 
         return back()->with('success', 'User marketing berhasil dihapus.');
     }
