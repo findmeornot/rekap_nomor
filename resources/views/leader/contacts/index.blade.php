@@ -41,7 +41,11 @@
                                 </option>
                             @endforeach
                         </select>
-                        {{-- Status filter removed: status controlled only by checkbox on each row --}}
+                        <select name="status" aria-label="Pilih status">
+                            <option value="all" @selected(($uiFilters['status'] ?? 'all') === 'all')>Semua Status</option>
+                            <option value="contacted" @selected(($uiFilters['status'] ?? 'all') === 'contacted')>Sudah Dihubungi</option>
+                            <option value="uncontacted" @selected(($uiFilters['status'] ?? 'all') === 'uncontacted')>Belum Dihubungi</option>
+                        </select>
                         <select name="per_page" aria-label="Jumlah data per halaman">
                             <option value="10" @selected(($uiFilters['per_page'] ?? 20) === 10)>10 / halaman</option>
                             <option value="20" @selected(($uiFilters['per_page'] ?? 20) === 20)>20 / halaman</option>
@@ -119,7 +123,7 @@
 
             <div class="panel fade-in-up">
                 <h3 class="section-title">Daftar Nomor</h3>
-                <p class="section-subtitle">Total ditemukan: <strong>{{ number_format($contacts->total()) }}</strong> data.</p>
+                <p class="section-subtitle">Total ditemukan: <strong id="total-found-count">{{ number_format($contacts->total()) }}</strong> data.</p>
                 @if ($selectedAssistantMarketingId)
                     <p class="section-subtitle">
                         Menampilkan data dari:
@@ -252,10 +256,12 @@
 
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         const toastContainer = document.getElementById('toast-container');
+        const totalFoundEl = document.getElementById('total-found-count');
         const totalContactedEl = document.getElementById('total-contacted-count');
         const contactedThisMonthEl = document.getElementById('contacted-this-month-count');
         const targetProgressEl = document.getElementById('target-progress');
         const currentMonth = new Date().toISOString().slice(0, 7);
+        const currentStatusFilter = new URLSearchParams(window.location.search).get('status') || 'all';
 
         const parseInteger = (element) => {
             if (!element) {
@@ -303,6 +309,34 @@
             if (targetProgressEl) {
                 targetProgressEl.textContent = String(Math.max(progressValue, 0));
             }
+        };
+
+        let totalFoundCount = parseInteger(totalFoundEl);
+
+        const updateTotalFoundCount = (delta) => {
+            if (!totalFoundEl) {
+                return;
+            }
+
+            const nextValue = Math.max(totalFoundCount + delta, 0);
+            totalFoundCount = nextValue;
+            totalFoundEl.textContent = formatNumber(nextValue);
+        };
+
+        const removeRowFromDom = (row) => {
+            if (!row || !row.parentNode) {
+                return;
+            }
+
+            row.parentNode.removeChild(row);
+        };
+
+        const insertRowToDom = (row, parent, nextSibling) => {
+            if (!row || !parent) {
+                return;
+            }
+
+            parent.insertBefore(row, nextSibling);
         };
 
         const formatDateTime = (date) => {
@@ -368,7 +402,11 @@
                     const statusLabel = row.querySelector('.contact-status-label');
                     const contactedAtCell = row.querySelector('.contacted-at-cell');
                     const prevChecked = !!(cb && cb.checked);
-                    prevStates.push({ row, cb, prevChecked });
+                    const parent = row.parentNode;
+                    const nextSibling = row.nextSibling;
+                    const removed = currentStatusFilter === 'uncontacted' && parent;
+
+                    prevStates.push({ row, cb, prevChecked, removed, parent, nextSibling });
 
                     if (cb && !prevChecked) {
                         cb.checked = true;
@@ -382,10 +420,19 @@
                             newlyMonthCount += 1;
                         }
                         cb.dataset.statusUpdatedAt = currentMonth;
+
+                        if (currentStatusFilter === 'uncontacted') {
+                            setTimeout(() => {
+                                removeRowFromDom(row);
+                            }, 2000);
+                        }
                     }
                 });
 
                 updateSummaryCounts(newlyCheckedCount, newlyMonthCount, newlyCheckedCount);
+                if (currentStatusFilter === 'uncontacted') {
+                    updateTotalFoundCount(-newlyCheckedCount);
+                }
 
                 // Persist to backend
                 try {
@@ -408,12 +455,19 @@
                     showToast(`Berhasil copy & update ${updated} nomor`, 'success');
                 } catch (err) {
                     // revert UI
-                    prevStates.forEach(({ row, cb, prevChecked }) => {
+                    prevStates.forEach(({ row, cb, prevChecked, removed, parent, nextSibling }) => {
+                        if (removed) {
+                            insertRowToDom(row, parent, nextSibling);
+                        }
+
                         if (cb) cb.checked = prevChecked;
                         const statusLabel = row.querySelector('.contact-status-label');
                         if (statusLabel) statusLabel.textContent = prevChecked ? 'Sudah Dihubungi' : 'Belum Dihubungi';
                         row.classList.remove('bg-emerald-50');
                     });
+                    if (currentStatusFilter === 'uncontacted') {
+                        updateTotalFoundCount(newlyCheckedCount);
+                    }
                     // adjust summary back
                     updateSummaryCounts(-newlyCheckedCount, -newlyMonthCount, -newlyCheckedCount);
                     showToast('Gagal memperbarui status pada server. Perubahan dibatalkan.', 'error');
@@ -469,6 +523,13 @@
                     if (nextChecked && !previousChecked) {
                         updateSummaryCounts(1, 1, 1);
                         cb.dataset.statusUpdatedAt = currentMonth;
+
+                        if (currentStatusFilter === 'uncontacted') {
+                            setTimeout(() => {
+                                removeRowFromDom(row);
+                            }, 2000);
+                            updateTotalFoundCount(-1);
+                        }
                     }
 
                     if (!nextChecked && previousChecked) {
