@@ -49,6 +49,7 @@ Route::middleware(['auth', 'role:main_marketing'])
         Route::get('/contacts/export', [LeaderContactController::class, 'export'])->name('contacts.export');
         Route::get('/contacts/{contact}/whatsapp', [LeaderContactController::class, 'whatsapp'])->name('contacts.whatsapp');
         Route::patch('/contacts/{contact}/status', [LeaderContactController::class, 'updateStatus'])->name('contacts.status');
+        Route::patch('/contacts/bulk-status', [LeaderContactController::class, 'bulkUpdateStatus'])->name('contacts.bulk-status');
         Route::get('/requests', [LeaderNumberRequestController::class, 'index'])->name('requests.index');
         Route::post('/requests', [LeaderNumberRequestController::class, 'store'])->name('requests.store');
         Route::patch('/requests/{numberRequest}/approve', [LeaderNumberRequestController::class, 'approve'])->name('requests.approve');

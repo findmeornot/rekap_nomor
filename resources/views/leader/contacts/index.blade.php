@@ -143,18 +143,27 @@
                 <div class="table-wrap mt-4">
                     <table class="table-clean">
                         <thead>
-                            <tr>
-                                <th>Nama Kontak</th>
-                                <th>Nomor</th>
-                                <th>Input Oleh</th>
-                                <th>Status</th>
-                                <th>Tanggal</th>
-                                <th>Aksi</th>
-                            </tr>
+                                <tr>
+                                    <th>Nama Kontak</th>
+                                    <th>Nomor
+                                        <button id="bulk-copy-btn" type="button" title="Bulk Copy + Mark as Contacted" class="ml-2 inline-flex h-6 w-6 items-center justify-center rounded border border-slate-300 bg-white text-slate-700 transition hover:bg-slate-100" data-bulk-url="{{ route('leader.contacts.bulk-status') }}" aria-label="Bulk Copy and Mark as Contacted">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-2" />
+                                                <path d="M9 4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2" />
+                                                <path d="M9 12h6" />
+                                            </svg>
+                                        </button>
+                                    </th>
+                                    <th>Input Oleh</th>
+                                    <th>Status</th>
+                                    <th>Tanggal</th>
+                                    <th>Aksi</th>
+                                    <th>Tanggal Dihubungi</th>
+                                </tr>
                         </thead>
                         <tbody>
                             @forelse ($contacts as $contact)
-                                <tr>
+                                <tr data-contact-id="{{ $contact->id }}" data-phone="{{ $contact->phone }}">
                                     <td>{{ $contact->contact_name ?? '-' }}</td>
                                     <td class="font-medium">{{ $contact->phone }}</td>
                                     <td>{{ $contact->subLeader?->name ?? '-' }}</td>
@@ -173,6 +182,7 @@
                                             @checked($contact->isContacted())
                                         />
                                     </td>
+                                    <td class="contacted-at-cell">{{ optional($contact->status_updated_at ?? $contact->contacted_at)->format('d M Y H:i') ?? '-' }}</td>
                                 </tr>
                             @empty
                                 <tr>
@@ -295,12 +305,131 @@
             }
         };
 
+        const formatDateTime = (date) => {
+            if (!date) {
+                return '-';
+            }
+
+            return new Intl.DateTimeFormat('id-ID', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+            }).format(date);
+        };
+        // Bulk copy + bulk update handler
+        const bulkBtn = document.getElementById('bulk-copy-btn');
+        let bulkLock = false;
+        if (bulkBtn) {
+            bulkBtn.addEventListener('click', async () => {
+                if (bulkLock) return;
+                bulkLock = true;
+
+                const bulkUrl = bulkBtn.dataset.bulkUrl;
+                const rows = Array.from(document.querySelectorAll('table tbody tr'));
+                const phones = [];
+                const ids = [];
+                const rowData = [];
+
+                rows.forEach((row) => {
+                    const phone = row.dataset.phone?.trim() ?? '';
+                    const id = row.dataset.contactId ? parseInt(row.dataset.contactId, 10) : null;
+                    if (phone && id) {
+                        phones.push(phone);
+                        ids.push(id);
+                        rowData.push({ row, id, phone });
+                    }
+                });
+
+                if (phones.length === 0) {
+                    showToast('Tidak ada nomor pada halaman ini untuk dicopy.', 'error');
+                    bulkLock = false;
+                    return;
+                }
+
+                const payloadText = phones.join('\n');
+
+                try {
+                    await navigator.clipboard.writeText(payloadText);
+                } catch (err) {
+                    showToast('Gagal menyalin ke clipboard. Pastikan browser mengizinkan clipboard.', 'error');
+                    bulkLock = false;
+                    return;
+                }
+
+                // Optimistically update UI (checkboxes, labels, highlight) after successful copy
+                const prevStates = [];
+                let newlyCheckedCount = 0;
+                let newlyMonthCount = 0;
+
+                rowData.forEach(({ row }) => {
+                    const cb = row.querySelector('.contact-marked');
+                    const statusLabel = row.querySelector('.contact-status-label');
+                    const contactedAtCell = row.querySelector('.contacted-at-cell');
+                    const prevChecked = !!(cb && cb.checked);
+                    prevStates.push({ row, cb, prevChecked });
+
+                    if (cb && !prevChecked) {
+                        cb.checked = true;
+                        if (statusLabel) statusLabel.textContent = 'Sudah Dihubungi';
+                        if (contactedAtCell) contactedAtCell.textContent = formatDateTime(new Date());
+                        row.classList.add('bg-emerald-50');
+                        newlyCheckedCount += 1;
+
+                        const previousStatusUpdatedAt = cb.dataset.statusUpdatedAt || '';
+                        if (previousStatusUpdatedAt !== currentMonth) {
+                            newlyMonthCount += 1;
+                        }
+                        cb.dataset.statusUpdatedAt = currentMonth;
+                    }
+                });
+
+                updateSummaryCounts(newlyCheckedCount, newlyMonthCount, newlyCheckedCount);
+
+                // Persist to backend
+                try {
+                    const resp = await fetch(bulkUrl, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken,
+                        },
+                        body: JSON.stringify({ contact_ids: ids }),
+                    });
+
+                    if (!resp.ok) throw new Error('HTTP error');
+
+                    const body = await resp.json();
+                    if (!body.ok) throw new Error('Backend error');
+
+                    const updated = body.updated ?? ids.length;
+                    showToast(`Berhasil copy & update ${updated} nomor`, 'success');
+                } catch (err) {
+                    // revert UI
+                    prevStates.forEach(({ row, cb, prevChecked }) => {
+                        if (cb) cb.checked = prevChecked;
+                        const statusLabel = row.querySelector('.contact-status-label');
+                        if (statusLabel) statusLabel.textContent = prevChecked ? 'Sudah Dihubungi' : 'Belum Dihubungi';
+                        row.classList.remove('bg-emerald-50');
+                    });
+                    // adjust summary back
+                    updateSummaryCounts(-newlyCheckedCount, -newlyMonthCount, -newlyCheckedCount);
+                    showToast('Gagal memperbarui status pada server. Perubahan dibatalkan.', 'error');
+                } finally {
+                    bulkLock = false;
+                }
+            });
+        }
+
         document.querySelectorAll('.contact-marked').forEach((checkbox) => {
             checkbox.addEventListener('change', async (ev) => {
                 const cb = ev.currentTarget;
                 const url = cb.dataset.url;
                 const row = cb.closest('tr');
                 const statusLabel = row?.querySelector('.contact-status-label');
+                const contactedAtCell = row?.querySelector('.contacted-at-cell');
                 const previousChecked = !cb.checked;
                 const previousStatusUpdatedAt = cb.dataset.statusUpdatedAt || '';
                 const currentMonthMatch = previousStatusUpdatedAt === currentMonth ? 1 : 0;
@@ -331,6 +460,10 @@
 
                     if (statusLabel) {
                         statusLabel.textContent = payload.label ?? (nextChecked ? 'Sudah Dihubungi' : 'Belum Dihubungi');
+                    }
+
+                    if (contactedAtCell) {
+                        contactedAtCell.textContent = nextChecked ? formatDateTime(new Date()) : '-';
                     }
 
                     if (nextChecked && !previousChecked) {

@@ -187,6 +187,36 @@ class ContactController extends Controller
         ]);
     }
 
+    public function bulkUpdateStatus(Request $request): JsonResponse
+    {
+        $user = auth()->user();
+
+        $validated = $request->validate([
+            'contact_ids' => ['required', 'array', 'min:1'],
+            'contact_ids.*' => ['integer', 'distinct'],
+        ]);
+
+        $ids = array_map('intval', $validated['contact_ids']);
+
+        // Only allow updating contacts within the leader's team
+        $updated = Contact::query()
+            ->whereIn('id', $ids)
+            ->where('team_id', $user->team_id)
+            ->update([
+                'is_contacted' => true,
+                'status' => Contact::STATUS_CONTACTED,
+                'status_updated_by' => $user->id,
+                'status_updated_at' => now(),
+                'contacted_at' => now(),
+                'contacted_by_main_marketing_id' => $user->id,
+            ]);
+
+        return response()->json([
+            'ok' => true,
+            'updated' => $updated,
+        ]);
+    }
+
     /**
      * @return Builder<Contact>
      */
