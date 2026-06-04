@@ -167,13 +167,13 @@ class UserManagementController extends Controller
         $this->applyListFilters($summaryQuery, $uiFilters);
 
         $summaryRows = $summaryQuery
-            ->selectRaw("main_marketing_id, COUNT(*) as total_contacts, SUM(CASE WHEN status = '".Contact::STATUS_CONTACTED."' THEN 1 ELSE 0 END) as contacted_contacts, MAX(created_at) as latest_input_at")
+            ->selectRaw("main_marketing_id, COUNT(*) as total_contacts, SUM(CASE WHEN is_contacted = 1 THEN 1 ELSE 0 END) as contacted_contacts, MAX(created_at) as latest_input_at")
             ->groupBy('main_marketing_id')
             ->get()
             ->keyBy('main_marketing_id');
 
         $monthlyContactedRows = Contact::query()
-            ->where('status', Contact::STATUS_CONTACTED)
+            ->where('is_contacted', true)
             ->whereYear('status_updated_at', now()->year)
             ->whereMonth('status_updated_at', now()->month)
             ->selectRaw('main_marketing_id, COUNT(*) as monthly_contacted_count')
@@ -317,11 +317,11 @@ class UserManagementController extends Controller
         }
 
         if ($uiFilters['status'] === 'contacted') {
-            $query->where('status', Contact::STATUS_CONTACTED);
+            $query->where('is_contacted', true);
         }
 
         if ($uiFilters['status'] === 'uncontacted') {
-            $query->where('status', Contact::STATUS_UNCONTACTED);
+            $query->where('is_contacted', false);
         }
     }
 

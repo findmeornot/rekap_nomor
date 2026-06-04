@@ -40,11 +40,7 @@
                                 </option>
                             @endforeach
                         </select>
-                        <select name="status" aria-label="Filter status hubungi">
-                            <option value="all" @selected(($uiFilters['status'] ?? 'all') === 'all')>Semua Status</option>
-                            <option value="contacted" @selected(($uiFilters['status'] ?? '') === 'contacted')>Sudah Dihubungi</option>
-                            <option value="uncontacted" @selected(($uiFilters['status'] ?? '') === 'uncontacted')>Belum Dihubungi</option>
-                        </select>
+                        {{-- Status filter removed: status controlled only by checkbox on each row --}}
                         <select name="per_page" aria-label="Jumlah data per halaman">
                             <option value="10" @selected(($uiFilters['per_page'] ?? 20) === 10)>10 / halaman</option>
                             <option value="20" @selected(($uiFilters['per_page'] ?? 20) === 20)>20 / halaman</option>
@@ -163,37 +159,18 @@
                                     <td class="font-medium">{{ $contact->phone }}</td>
                                     <td>{{ $contact->subLeader?->name ?? '-' }}</td>
                                     <td>
-                                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                                            <select
-                                                class="contact-status-select rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700"
-                                                data-url="{{ route('leader.contacts.status', $contact) }}"
-                                                data-contact-id="{{ $contact->id }}"
-                                                data-original-status="{{ $contact->isContacted() ? 'contacted' : 'uncontacted' }}"
-                                                aria-label="Ubah status kontak"
-                                            >
-                                                <option value="uncontacted" @selected(! $contact->isContacted())>Belum Dihubungi</option>
-                                                <option value="contacted" @selected($contact->isContacted())>Sudah Dihubungi</option>
-                                            </select>
-                                            <button
-                                                type="button"
-                                                class="contact-status-save inline-flex items-center rounded-lg border border-amber-600 bg-amber-50 px-3 py-1.5 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100"
-                                                data-dirty="false"
-                                                aria-label="Simpan perubahan status kontak"
-                                            >
-                                                Save Status
-                                            </button>
-                                        </div>
+                                        <span class="contact-status-label">{{ $contact->statusLabel() }}</span>
                                     </td>
                                     <td>{{ $contact->created_at->format('d M Y H:i') }}</td>
                                     <td>
-                                        <a
-                                            href="{{ route('leader.contacts.whatsapp', $contact) }}"
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            class="inline-flex items-center rounded-lg border border-blue-600 bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700"
-                                        >
-                                            {{ $contact->isContacted() ? 'Hubungi Lagi' : 'Hubungi' }}
-                                        </a>
+                                        <input
+                                            type="checkbox"
+                                            class="contact-marked"
+                                            data-url="{{ route('leader.contacts.status', $contact) }}"
+                                            data-contact-id="{{ $contact->id }}"
+                                            aria-label="Tandai sudah dihubungi"
+                                            @checked($contact->isContacted())
+                                        />
                                     </td>
                                 </tr>
                             @empty
@@ -275,59 +252,24 @@
 
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-        const setSaveState = (select) => {
-            const saveButton = select.closest('tr')?.querySelector('.contact-status-save');
-            if (!saveButton) {
-                return;
-            }
+        document.querySelectorAll('.contact-marked').forEach((checkbox) => {
+            checkbox.addEventListener('change', async (ev) => {
+                const cb = ev.currentTarget;
+                const url = cb.dataset.url;
+                const row = cb.closest('tr');
+                const statusLabel = row?.querySelector('.contact-status-label');
 
-            const isDirty = select.value !== select.dataset.originalStatus;
-            saveButton.dataset.dirty = isDirty ? 'true' : 'false';
-            saveButton.setAttribute('aria-disabled', isDirty ? 'false' : 'true');
-            saveButton.classList.toggle('opacity-50', !isDirty);
-            saveButton.classList.toggle('cursor-not-allowed', !isDirty);
-            saveButton.classList.toggle('border-slate-300', !isDirty);
-            saveButton.classList.toggle('bg-slate-100', !isDirty);
-            saveButton.classList.toggle('text-slate-400', !isDirty);
-            saveButton.classList.toggle('hover:bg-amber-100', isDirty);
-        };
-
-        document.querySelectorAll('.contact-status-select').forEach((select) => {
-            const saveButton = select.closest('tr')?.querySelector('.contact-status-save');
-
-            if (!saveButton) {
-                return;
-            }
-
-            setSaveState(select);
-
-            select.addEventListener('change', () => {
-                setSaveState(select);
-            });
-
-            saveButton.addEventListener('click', async () => {
-                const previousStatus = select.dataset.originalStatus;
-                const nextStatus = select.value;
-
-                if (select.value === select.dataset.originalStatus) {
-                    return;
-                }
-
-                select.disabled = true;
-                saveButton.dataset.saving = 'true';
-                saveButton.setAttribute('aria-disabled', 'true');
-                saveButton.classList.add('opacity-50', 'cursor-not-allowed');
-                saveButton.textContent = 'Menyimpan...';
+                cb.disabled = true;
 
                 try {
-                    const response = await fetch(select.dataset.url, {
+                    const response = await fetch(url, {
                         method: 'PATCH',
                         headers: {
                             'Content-Type': 'application/json',
                             'Accept': 'application/json',
                             'X-CSRF-TOKEN': csrfToken,
                         },
-                        body: JSON.stringify({ status: nextStatus }),
+                        body: JSON.stringify({ is_contacted: cb.checked }),
                     });
 
                     if (!response.ok) {
@@ -340,18 +282,17 @@
                         throw new Error('Gagal memperbarui status');
                     }
 
-                    select.dataset.originalStatus = nextStatus;
-                    saveButton.textContent = 'Tersimpan';
-                    setSaveState(select);
+                    if (statusLabel) {
+                        statusLabel.textContent = payload.label ?? (cb.checked ? 'Sudah Dihubungi' : 'Belum Dihubungi');
+                    }
+
                     showStatusMessage('Status berhasil disimpan.', 'success');
                 } catch (error) {
-                    select.value = previousStatus;
-                    setSaveState(select);
+                    // revert
+                    cb.checked = !cb.checked;
                     showStatusMessage('Gagal memperbarui status. Silakan coba lagi.', 'error');
                 } finally {
-                    select.disabled = false;
-                    saveButton.dataset.saving = 'false';
-                    saveButton.textContent = 'Save Status';
+                    cb.disabled = false;
                 }
             });
         });

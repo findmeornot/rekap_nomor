@@ -46,7 +46,7 @@ class NumberRequestController extends Controller
 
         $user = auth()->user();
 
-        if (Contact::where('main_marketing_id', $user->id)->where('status', Contact::STATUS_UNCONTACTED)->exists()) {
+        if (Contact::where('main_marketing_id', $user->id)->where('is_contacted', false)->exists()) {
             return $this->errorResponse('Hanya bisa meminta nomor apabila semua nomor tim sendiri sudah ditangani.');
         }
 
@@ -86,7 +86,7 @@ class NumberRequestController extends Controller
         ])['response_message'] ?? null;
 
         $available = Contact::where('main_marketing_id', $user->id)
-            ->where('status', Contact::STATUS_UNCONTACTED)
+            ->where('is_contacted', false)
             ->count();
 
         if ($available < $numberRequest->amount) {
@@ -94,7 +94,7 @@ class NumberRequestController extends Controller
         }
 
         $transferIds = Contact::where('main_marketing_id', $user->id)
-            ->where('status', Contact::STATUS_UNCONTACTED)
+            ->where('is_contacted', false)
             ->orderBy('created_at')
             ->limit($numberRequest->amount)
             ->pluck('id');

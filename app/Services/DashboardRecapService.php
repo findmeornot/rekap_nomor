@@ -66,10 +66,10 @@ class DashboardRecapService
             );
 
         $contacts = (clone $teamContacts)->count();
-        $contacted = (clone $teamContacts)->where('status', Contact::STATUS_CONTACTED)->count();
+        $contacted = (clone $teamContacts)->where('is_contacted', true)->count();
 
         $personalHandled = (clone $teamContacts)
-            ->where('status', Contact::STATUS_CONTACTED)
+            ->where('is_contacted', true)
             ->where('status_updated_by', $user->id)
             ->count();
 
@@ -97,7 +97,7 @@ class DashboardRecapService
         $dateLabels = $this->buildDateLabels(7);
         $mainDailyData = $this->pluckDailyCounts(
             (clone $teamContacts)
-                ->where('status', Contact::STATUS_CONTACTED)
+                ->where('is_contacted', true)
                 ->where('status_updated_by', $user->id)
                 ->whereNotNull('status_updated_at'),
             'status_updated_at',
@@ -205,7 +205,7 @@ class DashboardRecapService
                 'users.id',
                 'users.name',
                 DB::raw('COUNT(contacts.id) as total_count'),
-                DB::raw("SUM(CASE WHEN contacts.status = '".Contact::STATUS_CONTACTED."' THEN 1 ELSE 0 END) as contacted_count")
+                 DB::raw("SUM(CASE WHEN contacts.is_contacted = 1 THEN 1 ELSE 0 END) as contacted_count")
             )
             ->groupBy('users.id', 'users.name')
             ->orderByDesc('total_count')
@@ -225,7 +225,7 @@ class DashboardRecapService
                 'users.id',
                 'users.name',
                 DB::raw('COUNT(contacts.id) as total_count'),
-                DB::raw("SUM(CASE WHEN contacts.status = '".Contact::STATUS_CONTACTED."' THEN 1 ELSE 0 END) as contacted_count")
+                 DB::raw("SUM(CASE WHEN contacts.is_contacted = 1 THEN 1 ELSE 0 END) as contacted_count")
             )
             ->groupBy('users.id', 'users.name')
             ->orderByDesc('total_count')
@@ -260,7 +260,7 @@ class DashboardRecapService
                 'users.name',
                 'leaders.name as leader_name',
                 DB::raw('COUNT(contacts.id) as total_count'),
-                DB::raw("SUM(CASE WHEN contacts.status = '".Contact::STATUS_CONTACTED."' THEN 1 ELSE 0 END) as contacted_count")
+                 DB::raw("SUM(CASE WHEN contacts.is_contacted = 1 THEN 1 ELSE 0 END) as contacted_count")
             )
             ->groupBy('users.id', 'users.name', 'leaders.name')
             ->orderByDesc('total_count')
@@ -292,7 +292,7 @@ class DashboardRecapService
                 'users.name',
                 'leaders.name as leader_name',
                 DB::raw('COUNT(contacts.id) as total_count'),
-                DB::raw("SUM(CASE WHEN contacts.status = '".Contact::STATUS_CONTACTED."' THEN 1 ELSE 0 END) as contacted_count")
+                 DB::raw("SUM(CASE WHEN contacts.is_contacted = 1 THEN 1 ELSE 0 END) as contacted_count")
             )
             ->groupBy('users.id', 'users.name', 'leaders.name')
             ->orderByDesc('total_count')
@@ -331,7 +331,7 @@ class DashboardRecapService
                 'teams.id',
                 'teams.name',
                 DB::raw('COUNT(DISTINCT contacts.id) as total_count'),
-                DB::raw("COUNT(DISTINCT CASE WHEN contacts.status = '".Contact::STATUS_CONTACTED."' THEN contacts.id END) as contacted_count")
+                 DB::raw("COUNT(DISTINCT CASE WHEN contacts.is_contacted = 1 THEN contacts.id END) as contacted_count")
             )
             ->groupBy('teams.id', 'teams.name')
             ->orderByDesc('total_count')
@@ -355,7 +355,7 @@ class DashboardRecapService
         $endMonth = now()->endOfMonth();
 
         $contactedRows = Contact::query()
-            ->where('status', Contact::STATUS_CONTACTED)
+            ->where('is_contacted', true)
             ->whereNotNull('status_updated_at')
             ->whereBetween('status_updated_at', [$startMonth, $endMonth])
             ->selectRaw('YEAR(status_updated_at) as year, MONTH(status_updated_at) as month, COUNT(*) as total_count')

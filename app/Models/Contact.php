@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
     'input_by',
     'main_marketing_id',
     'status',
+    'is_contacted',
     'status_updated_by',
     'status_updated_at',
     'contacted_at',
@@ -41,6 +42,10 @@ class Contact extends Model
 
     public function isContacted(): bool
     {
+        if (array_key_exists('is_contacted', $this->attributes)) {
+            return (bool) $this->is_contacted;
+        }
+
         return $this->status === self::STATUS_CONTACTED;
     }
 
@@ -63,7 +68,20 @@ class Contact extends Model
         return [
             'contacted_at' => 'datetime',
             'status_updated_at' => 'datetime',
+            'is_contacted' => 'boolean',
         ];
+    }
+
+    public function setIsContacted(User $user, bool $isContacted): void
+    {
+        $this->update([
+            'is_contacted' => $isContacted,
+            'status' => $isContacted ? self::STATUS_CONTACTED : self::STATUS_UNCONTACTED,
+            'status_updated_by' => $user->id,
+            'status_updated_at' => now(),
+            'contacted_at' => $isContacted ? now() : null,
+            'contacted_by_main_marketing_id' => $isContacted ? $user->id : null,
+        ]);
     }
 
     public function getWhatsappPhoneAttribute(): string

@@ -57,16 +57,16 @@ class ContactController extends Controller
 
         $totalContactsCount = $this->scopedContacts($user)->count();
         $totalContactedCount = $this->scopedContacts($user)
-            ->where('status', Contact::STATUS_CONTACTED)
+            ->where('is_contacted', true)
             ->count();
         $contactedThisMonthCount = $this->scopedContacts($user)
-            ->where('status', Contact::STATUS_CONTACTED)
+            ->where('is_contacted', true)
             ->whereYear('status_updated_at', now()->year)
             ->whereMonth('status_updated_at', now()->month)
             ->count();
 
         $monthlyContactedData = $this->scopedContacts($user)
-            ->where('status', Contact::STATUS_CONTACTED)
+            ->where('is_contacted', true)
             ->whereNotNull('status_updated_at')
             ->get(['status_updated_at'])
             ->groupBy(fn ($contact) => $contact->status_updated_at->format('Y-m'))
@@ -80,7 +80,7 @@ class ContactController extends Controller
         $personalHandledCount = $user->team_id
             ? Contact::query()
                 ->where('team_id', $user->team_id)
-                ->where('status', Contact::STATUS_CONTACTED)
+                ->where('is_contacted', true)
                 ->where('status_updated_by', $user->id)
                 ->count()
             : 0;
@@ -164,8 +164,7 @@ class ContactController extends Controller
 
         abort_unless($this->leaderCanAccessContact($user, $contact), 404);
 
-        $contact->applyStatus($user, Contact::STATUS_CONTACTED);
-
+        // Do not change contact status when opening WhatsApp — checkbox is the only source of truth.
         return redirect()->away($contact->whatsapp_url);
     }
 
@@ -176,15 +175,14 @@ class ContactController extends Controller
         abort_unless($this->leaderCanAccessContact($user, $contact), 404);
 
         $validated = $request->validate([
-            'status' => ['required', 'in:contacted,uncontacted'],
+            'is_contacted' => ['required', 'boolean'],
         ]);
 
-        $status = Contact::statusFromInput($validated['status']);
-        $contact->applyStatus($user, $status);
+        $contact->setIsContacted($user, (bool) $validated['is_contacted']);
 
         return response()->json([
             'ok' => true,
-            'status' => $validated['status'],
+            'is_contacted' => (bool) $validated['is_contacted'],
             'label' => $contact->fresh()->statusLabel(),
         ]);
     }
@@ -317,11 +315,11 @@ class ContactController extends Controller
         }
 
         if ($uiFilters['status'] === 'contacted') {
-            $query->where('status', Contact::STATUS_CONTACTED);
+            $query->where('is_contacted', true);
         }
 
         if ($uiFilters['status'] === 'uncontacted') {
-            $query->where('status', Contact::STATUS_UNCONTACTED);
+            $query->where('is_contacted', false);
         }
     }
 }
