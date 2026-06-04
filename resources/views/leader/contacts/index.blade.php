@@ -1,4 +1,5 @@
 <x-app-layout>
+    <div id="toast-container" class="fixed right-4 top-4 z-50 flex flex-col gap-2 items-end pointer-events-none" style="position:fixed;top:1rem;right:1rem;z-index:9999;"></div>
     <x-slot name="header">
         <div>
             <h2 class="text-2xl font-semibold leading-tight text-slate-900">
@@ -102,16 +103,16 @@
                     </div>
                     <div class="stat-card">
                         <p class="text-sm font-medium text-slate-500">Total Sudah Dihubungi</p>
-                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($totalContactedCount) }}</p>
+                        <p id="total-contacted-count" class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($totalContactedCount) }}</p>
                     </div>
                     <div class="stat-card">
                         <p class="text-sm font-medium text-slate-500">Dihubungi Bulan Ini</p>
-                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($contactedThisMonthCount) }}</p>
+                        <p id="contacted-this-month-count" class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($contactedThisMonthCount) }}</p>
                     </div>
                     <div class="stat-card">
                         <p class="text-sm font-medium text-slate-500">Target Marketing Utama</p>
                         <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($target) }}</p>
-                        <p class="mt-1 text-xs text-slate-500">Progress: {{ $progress }}%</p>
+                        <p class="mt-1 text-xs text-slate-500">Progress: <span id="target-progress">{{ $progress }}</span>%</p>
                     </div>
                 </div>
             </div>
@@ -139,7 +140,6 @@
                         @endif
                     </p>
                 @endif
-                <div id="contact-status-message" class="mt-3 hidden" role="status" aria-live="polite"></div>
                 <div class="table-wrap mt-4">
                     <table class="table-clean">
                         <thead>
@@ -168,6 +168,7 @@
                                             class="contact-marked"
                                             data-url="{{ route('leader.contacts.status', $contact) }}"
                                             data-contact-id="{{ $contact->id }}"
+                                            data-status-updated-at="{{ optional($contact->status_updated_at)->format('Y-m') }}"
                                             aria-label="Tandai sudah dihubungi"
                                             @checked($contact->isContacted())
                                         />
@@ -200,17 +201,6 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script>
         const data = @json($monthlyContactedData);
-        const statusMessage = document.getElementById('contact-status-message');
-
-        const showStatusMessage = (message, type) => {
-            if (!statusMessage) {
-                return;
-            }
-
-            statusMessage.textContent = message;
-            statusMessage.classList.remove('hidden', 'status-success', 'status-error');
-            statusMessage.classList.add(type === 'success' ? 'status-success' : 'status-error');
-        };
 
         const container = document.getElementById('chartContainer');
         if (container) {
@@ -251,6 +241,59 @@
         }
 
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        const toastContainer = document.getElementById('toast-container');
+        const totalContactedEl = document.getElementById('total-contacted-count');
+        const contactedThisMonthEl = document.getElementById('contacted-this-month-count');
+        const targetProgressEl = document.getElementById('target-progress');
+        const currentMonth = new Date().toISOString().slice(0, 7);
+
+        const parseInteger = (element) => {
+            if (!element) {
+                return 0;
+            }
+
+            return parseInt(element.textContent.replace(/[^0-9]/g, ''), 10) || 0;
+        };
+
+        let totalContactedCount = parseInteger(totalContactedEl);
+        let contactedThisMonthCount = parseInteger(contactedThisMonthEl);
+        let progressValue = parseInteger(targetProgressEl);
+
+        const formatNumber = (value) => new Intl.NumberFormat('id-ID').format(value);
+
+        const showToast = (message, type) => {
+            if (!toastContainer) {
+                return;
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `rounded-lg px-4 py-3 text-sm font-semibold shadow-lg transition-all pointer-events-auto ${type === 'success' ? 'bg-emerald-500 text-white' : 'bg-red-600 text-white'}`;
+            toast.textContent = message;
+            toastContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        };
+
+        const updateSummaryCounts = (deltaTotal, deltaMonth, deltaProgress) => {
+            totalContactedCount += deltaTotal;
+            contactedThisMonthCount += deltaMonth;
+            progressValue += deltaProgress;
+
+            if (totalContactedEl) {
+                totalContactedEl.textContent = formatNumber(Math.max(totalContactedCount, 0));
+            }
+
+            if (contactedThisMonthEl) {
+                contactedThisMonthEl.textContent = formatNumber(Math.max(contactedThisMonthCount, 0));
+            }
+
+            if (targetProgressEl) {
+                targetProgressEl.textContent = String(Math.max(progressValue, 0));
+            }
+        };
 
         document.querySelectorAll('.contact-marked').forEach((checkbox) => {
             checkbox.addEventListener('change', async (ev) => {
@@ -258,6 +301,10 @@
                 const url = cb.dataset.url;
                 const row = cb.closest('tr');
                 const statusLabel = row?.querySelector('.contact-status-label');
+                const previousChecked = !cb.checked;
+                const previousStatusUpdatedAt = cb.dataset.statusUpdatedAt || '';
+                const currentMonthMatch = previousStatusUpdatedAt === currentMonth ? 1 : 0;
+                const nextChecked = cb.checked;
 
                 cb.disabled = true;
 
@@ -269,7 +316,7 @@
                             'Accept': 'application/json',
                             'X-CSRF-TOKEN': csrfToken,
                         },
-                        body: JSON.stringify({ is_contacted: cb.checked }),
+                        body: JSON.stringify({ is_contacted: nextChecked }),
                     });
 
                     if (!response.ok) {
@@ -283,14 +330,23 @@
                     }
 
                     if (statusLabel) {
-                        statusLabel.textContent = payload.label ?? (cb.checked ? 'Sudah Dihubungi' : 'Belum Dihubungi');
+                        statusLabel.textContent = payload.label ?? (nextChecked ? 'Sudah Dihubungi' : 'Belum Dihubungi');
                     }
 
-                    showStatusMessage('Status berhasil disimpan.', 'success');
+                    if (nextChecked && !previousChecked) {
+                        updateSummaryCounts(1, 1, 1);
+                        cb.dataset.statusUpdatedAt = currentMonth;
+                    }
+
+                    if (!nextChecked && previousChecked) {
+                        updateSummaryCounts(-1, -currentMonthMatch, -1);
+                        cb.dataset.statusUpdatedAt = '';
+                    }
+
+                    showToast('Status berhasil disimpan.', 'success');
                 } catch (error) {
-                    // revert
-                    cb.checked = !cb.checked;
-                    showStatusMessage('Gagal memperbarui status. Silakan coba lagi.', 'error');
+                    cb.checked = previousChecked;
+                    showToast('Gagal memperbarui status. Silakan coba lagi.', 'error');
                 } finally {
                     cb.disabled = false;
                 }
