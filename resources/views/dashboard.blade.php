@@ -136,7 +136,7 @@
                         <div class="flex items-center justify-between">
                             <div>
                                 <h3 class="section-title">Diagram Perbandingan Antar Leader</h3>
-                                <p class="section-subtitle">Bandingkan total nomor, sudah dihubungi, dan belum dihubungi untuk setiap leader.</p>
+                                <p class="section-subtitle">Bandingkan performa leader berdasarkan jumlah nomor yang sudah dihubungi.</p>
                             </div>
                             <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-2">
                                 @foreach(request()->except('leader_chart_date') as $key => $value)
@@ -315,11 +315,89 @@
                     });
                 };
 
-                renderComparisonChart(
+                const renderLeaderComparisonChart = (canvasId, containerId, data, title) => {
+                    const canvas = document.getElementById(canvasId);
+                    const container = document.getElementById(containerId);
+
+                    if (!canvas || !container) {
+                        return;
+                    }
+
+                    if (!data.length) {
+                        container.innerHTML = '<p class="text-slate-500">Tidak ada data untuk bulan ini.</p>';
+                        return;
+                    }
+
+                    new Chart(canvas, {
+                        type: 'bar',
+                        data: {
+                            labels: data.map(item => item.label),
+                            datasets: [
+                                {
+                                    label: 'Sudah Dihubungi',
+                                    data: data.map(item => item.contacted),
+                                    backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                                    borderColor: 'rgba(16, 185, 129, 1)',
+                                    borderWidth: 1,
+                                },
+                            ],
+                        },
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: title,
+                                    font: {
+                                        size: 14,
+                                        weight: '500',
+                                    },
+                                    padding: {
+                                        bottom: 20,
+                                    },
+                                },
+                                datalabels: {
+                                    color: '#1e3a8a',
+                                    backgroundColor: 'rgba(219, 234, 254, 0.95)',
+                                    borderColor: 'rgba(147, 197, 253, 1)',
+                                    borderWidth: 1,
+                                    borderRadius: 6,
+                                    padding: {
+                                        top: 2,
+                                        right: 6,
+                                        bottom: 2,
+                                        left: 6,
+                                    },
+                                    anchor: 'end',
+                                    align: 'end',
+                                    offset: 6,
+                                    clamp: true,
+                                    clip: false,
+                                    display: (context) => context.datasetIndex === 0 && Number(context.dataset.data[context.dataIndex]) > 0,
+                                    formatter: (value) => Number(value).toLocaleString('id-ID'),
+                                    font: {
+                                        weight: '600',
+                                        size: 10,
+                                    },
+                                },
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1,
+                                    },
+                                },
+                            },
+                        },
+                    });
+                };
+
+                renderLeaderComparisonChart(
                     'leaderComparisonChart',
                     'superadminChartContainer',
                     leaderData,
-                    'Perbandingan Leader' + ' (' + leaderMonthDisplay + ')'
+                    'Perbandingan Leader (Sudah Dihubungi) ' + ' (' + leaderMonthDisplay + ')'
                 );
 
                 renderComparisonChart(

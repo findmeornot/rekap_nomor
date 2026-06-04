@@ -6,6 +6,7 @@ use App\Models\Contact;
 use App\Models\Team;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Query\Expression;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -99,8 +100,11 @@ class DashboardRecapService
             (clone $teamContacts)
                 ->where('is_contacted', true)
                 ->where('status_updated_by', $user->id)
-                ->whereNotNull('status_updated_at'),
-            'status_updated_at',
+                ->where(function ($query) {
+                    $query->whereNotNull('status_updated_at')
+                        ->orWhereNotNull('contacted_at');
+                }),
+            DB::raw('COALESCE(status_updated_at, contacted_at)'),
             $dateLabels
         );
 
@@ -176,8 +180,8 @@ class DashboardRecapService
     private function buildSuperAdminMeta(): array
     {
         $topLeader = User::where('role', User::ROLE_MAIN_MARKETING)
-            ->withCount('contactsAsLeader')
-            ->orderByDesc('contacts_as_leader_count')
+            ->withCount('contactsHandled')
+            ->orderByDesc('contacts_handled_count')
             ->first();
 
         $topSubLeader = User::where('role', User::ROLE_ASSISTANT_MARKETING)
@@ -197,18 +201,21 @@ class DashboardRecapService
     private function getLeaderComparisonDataForDay(string $date): Collection
     {
         return User::where('role', User::ROLE_MAIN_MARKETING)
-            ->leftJoin('contacts', function ($join) use ($date) {
+            ->leftJoin('contacts', function ($join) {
                 $join->on('users.id', '=', 'contacts.main_marketing_id')
-                    ->whereDate('contacts.created_at', $date);
+                    ->orOn('users.id', '=', 'contacts.contacted_by_main_marketing_id');
             })
-            ->select(
-                'users.id',
-                'users.name',
-                DB::raw('COUNT(contacts.id) as total_count'),
-                 DB::raw("SUM(CASE WHEN contacts.is_contacted = 1 THEN 1 ELSE 0 END) as contacted_count")
+            ->select('users.id', 'users.name')
+            ->selectRaw(
+                'COUNT(DISTINCT CASE WHEN DATE(contacts.created_at) = ? OR DATE(contacts.status_updated_at) = ? OR DATE(contacts.contacted_at) = ? THEN contacts.id END) as total_count',
+                [$date, $date, $date]
+            )
+            ->selectRaw(
+                'COUNT(DISTINCT CASE WHEN contacts.is_contacted = 1 AND (DATE(contacts.status_updated_at) = ? OR DATE(contacts.contacted_at) = ?) THEN contacts.id END) as contacted_count',
+                [$date, $date]
             )
             ->groupBy('users.id', 'users.name')
-            ->orderByDesc('total_count')
+            ->orderByDesc('contacted_count')
             ->get()
             ->map(fn ($item) => $this->mapLeaderComparisonRow($item));
     }
@@ -216,19 +223,21 @@ class DashboardRecapService
     private function getLeaderComparisonData(int $year, int $month): Collection
     {
         return User::where('role', User::ROLE_MAIN_MARKETING)
-            ->leftJoin('contacts', function ($join) use ($year, $month) {
+            ->leftJoin('contacts', function ($join) {
                 $join->on('users.id', '=', 'contacts.main_marketing_id')
-                    ->whereYear('contacts.created_at', $year)
-                    ->whereMonth('contacts.created_at', $month);
+                    ->orOn('users.id', '=', 'contacts.contacted_by_main_marketing_id');
             })
-            ->select(
-                'users.id',
-                'users.name',
-                DB::raw('COUNT(contacts.id) as total_count'),
-                 DB::raw("SUM(CASE WHEN contacts.is_contacted = 1 THEN 1 ELSE 0 END) as contacted_count")
+            ->select('users.id', 'users.name')
+            ->selectRaw(
+                'COUNT(DISTINCT CASE WHEN (YEAR(contacts.created_at) = ? AND MONTH(contacts.created_at) = ?) OR (YEAR(contacts.status_updated_at) = ? AND MONTH(contacts.status_updated_at) = ?) OR (YEAR(contacts.contacted_at) = ? AND MONTH(contacts.contacted_at) = ?) THEN contacts.id END) as total_count',
+                [$year, $month, $year, $month, $year, $month]
+            )
+            ->selectRaw(
+                'COUNT(DISTINCT CASE WHEN contacts.is_contacted = 1 AND ((YEAR(contacts.status_updated_at) = ? AND MONTH(contacts.status_updated_at) = ?) OR (YEAR(contacts.contacted_at) = ? AND MONTH(contacts.contacted_at) = ?)) THEN contacts.id END) as contacted_count',
+                [$year, $month, $year, $month]
             )
             ->groupBy('users.id', 'users.name')
-            ->orderByDesc('total_count')
+            ->orderByDesc('contacted_count')
             ->get()
             ->map(fn ($item) => $this->mapLeaderComparisonRow($item));
     }
@@ -250,17 +259,15 @@ class DashboardRecapService
     {
         return User::where('users.role', User::ROLE_ASSISTANT_MARKETING)
             ->leftJoin('users as leaders', 'users.main_marketing_id', '=', 'leaders.id')
-            ->leftJoin('contacts', function ($join) use ($year, $month) {
-                $join->on('users.id', '=', 'contacts.assistant_marketing_id')
-                    ->whereYear('contacts.created_at', $year)
-                    ->whereMonth('contacts.created_at', $month);
-            })
-            ->select(
-                'users.id',
-                'users.name',
-                'leaders.name as leader_name',
-                DB::raw('COUNT(contacts.id) as total_count'),
-                 DB::raw("SUM(CASE WHEN contacts.is_contacted = 1 THEN 1 ELSE 0 END) as contacted_count")
+            ->leftJoin('contacts', 'users.id', '=', 'contacts.assistant_marketing_id')
+            ->select('users.id', 'users.name', 'leaders.name as leader_name')
+            ->selectRaw(
+                'COUNT(DISTINCT CASE WHEN (YEAR(contacts.created_at) = ? AND MONTH(contacts.created_at) = ?) OR (YEAR(contacts.status_updated_at) = ? AND MONTH(contacts.status_updated_at) = ?) OR (YEAR(contacts.contacted_at) = ? AND MONTH(contacts.contacted_at) = ?) THEN contacts.id END) as total_count',
+                [$year, $month, $year, $month, $year, $month]
+            )
+            ->selectRaw(
+                'COUNT(DISTINCT CASE WHEN contacts.is_contacted = 1 AND ((YEAR(contacts.status_updated_at) = ? AND MONTH(contacts.status_updated_at) = ?) OR (YEAR(contacts.contacted_at) = ? AND MONTH(contacts.contacted_at) = ?)) THEN contacts.id END) as contacted_count',
+                [$year, $month, $year, $month]
             )
             ->groupBy('users.id', 'users.name', 'leaders.name')
             ->orderByDesc('total_count')
@@ -283,16 +290,15 @@ class DashboardRecapService
     {
         return User::where('users.role', User::ROLE_ASSISTANT_MARKETING)
             ->leftJoin('users as leaders', 'users.main_marketing_id', '=', 'leaders.id')
-            ->leftJoin('contacts', function ($join) use ($date) {
-                $join->on('users.id', '=', 'contacts.assistant_marketing_id')
-                    ->whereDate('contacts.created_at', $date);
-            })
-            ->select(
-                'users.id',
-                'users.name',
-                'leaders.name as leader_name',
-                DB::raw('COUNT(contacts.id) as total_count'),
-                 DB::raw("SUM(CASE WHEN contacts.is_contacted = 1 THEN 1 ELSE 0 END) as contacted_count")
+            ->leftJoin('contacts', 'users.id', '=', 'contacts.assistant_marketing_id')
+            ->select('users.id', 'users.name', 'leaders.name as leader_name')
+            ->selectRaw(
+                'COUNT(DISTINCT CASE WHEN DATE(contacts.created_at) = ? OR DATE(contacts.status_updated_at) = ? OR DATE(contacts.contacted_at) = ? THEN contacts.id END) as total_count',
+                [$date, $date, $date]
+            )
+            ->selectRaw(
+                'COUNT(DISTINCT CASE WHEN contacts.is_contacted = 1 AND (DATE(contacts.status_updated_at) = ? OR DATE(contacts.contacted_at) = ?) THEN contacts.id END) as contacted_count',
+                [$date, $date]
             )
             ->groupBy('users.id', 'users.name', 'leaders.name')
             ->orderByDesc('total_count')
@@ -323,15 +329,16 @@ class DashboardRecapService
                 $join->on(function ($query) {
                     $query->on('contacts.main_marketing_id', '=', 'users.id')
                         ->orOn('contacts.assistant_marketing_id', '=', 'users.id');
-                })
-                ->whereYear('contacts.created_at', $year)
-                ->whereMonth('contacts.created_at', $month);
+                });
             })
-            ->select(
-                'teams.id',
-                'teams.name',
-                DB::raw('COUNT(DISTINCT contacts.id) as total_count'),
-                 DB::raw("COUNT(DISTINCT CASE WHEN contacts.is_contacted = 1 THEN contacts.id END) as contacted_count")
+            ->select('teams.id', 'teams.name')
+            ->selectRaw(
+                'COUNT(DISTINCT CASE WHEN (YEAR(contacts.created_at) = ? AND MONTH(contacts.created_at) = ?) OR (YEAR(contacts.status_updated_at) = ? AND MONTH(contacts.status_updated_at) = ?) OR (YEAR(contacts.contacted_at) = ? AND MONTH(contacts.contacted_at) = ?) THEN contacts.id END) as total_count',
+                [$year, $month, $year, $month, $year, $month]
+            )
+            ->selectRaw(
+                'COUNT(DISTINCT CASE WHEN contacts.is_contacted = 1 AND ((YEAR(contacts.status_updated_at) = ? AND MONTH(contacts.status_updated_at) = ?) OR (YEAR(contacts.contacted_at) = ? AND MONTH(contacts.contacted_at) = ?)) THEN contacts.id END) as contacted_count',
+                [$year, $month, $year, $month]
             )
             ->groupBy('teams.id', 'teams.name')
             ->orderByDesc('total_count')
@@ -356,9 +363,12 @@ class DashboardRecapService
 
         $contactedRows = Contact::query()
             ->where('is_contacted', true)
-            ->whereNotNull('status_updated_at')
-            ->whereBetween('status_updated_at', [$startMonth, $endMonth])
-            ->selectRaw('YEAR(status_updated_at) as year, MONTH(status_updated_at) as month, COUNT(*) as total_count')
+            ->where(function ($query) {
+                $query->whereNotNull('status_updated_at')
+                    ->orWhereNotNull('contacted_at');
+            })
+            ->whereBetween(DB::raw('COALESCE(status_updated_at, contacted_at)'), [$startMonth, $endMonth])
+            ->selectRaw('YEAR(COALESCE(status_updated_at, contacted_at)) as year, MONTH(COALESCE(status_updated_at, contacted_at)) as month, COUNT(*) as total_count')
             ->groupBy('year', 'month')
             ->get();
 
@@ -429,15 +439,26 @@ class DashboardRecapService
         return $dateLabels->map(fn (string $date) => Carbon::parse($date)->translatedFormat('d M'))->all();
     }
 
-    private function pluckDailyCounts($query, string $dateColumn, Collection $dateLabels): array
+    private function pluckDailyCounts($query, string|Expression $dateColumn, Collection $dateLabels): array
     {
+        $dateColumnSql = $this->expressionToString($dateColumn);
+
         $dailyCounts = $query
             ->whereBetween($dateColumn, [$dateLabels->first() . ' 00:00:00', now()->endOfDay()])
-            ->selectRaw("DATE({$dateColumn}) as date, COUNT(*) as total")
+            ->selectRaw("DATE({$dateColumnSql}) as date, COUNT(*) as total")
             ->groupBy('date')
             ->pluck('total', 'date');
 
         return $dateLabels->map(fn (string $date) => (int) ($dailyCounts[$date] ?? 0))->all();
+    }
+
+    private function expressionToString(string|Expression $column): string
+    {
+        if ($column instanceof Expression) {
+            return $column->getValue(DB::connection()->getQueryGrammar());
+        }
+
+        return $column;
     }
 
     private function buildDailyTargetData(int $target, int $length): array

@@ -247,6 +247,8 @@
                             <tr>
                                 <th>Nama Tim</th>
                                 <th>Jumlah Anggota</th>
+                                <th>Jumlah Marketing Utama</th>
+                                <th>Jumlah Asisten Marketing</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -254,10 +256,12 @@
                                 <tr>
                                     <td>{{ $team->name }}</td>
                                     <td>{{ $team->members_count }}</td>
+                                    <td>{{ $team->leaders_count }}</td>
+                                    <td>{{ $team->sub_leaders_count }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="2" class="px-4 py-4 text-slate-500">Belum ada tim.</td>
+                                    <td colspan="4" class="px-4 py-4 text-slate-500">Belum ada tim.</td>
                                 </tr>
                             @endforelse
                         </tbody>

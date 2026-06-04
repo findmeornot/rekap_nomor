@@ -80,6 +80,11 @@ class User extends Authenticatable
         return $this->hasMany(Contact::class, 'main_marketing_id');
     }
 
+    public function contactsHandled(): HasMany
+    {
+        return $this->hasMany(Contact::class, 'contacted_by_main_marketing_id');
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->role === self::ROLE_SUPERADMIN;

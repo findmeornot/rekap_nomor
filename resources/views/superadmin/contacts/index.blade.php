@@ -205,34 +205,32 @@
             <div class="panel fade-in-up">
                 <h3 class="section-title">Ringkasan Per Leader</h3>
                 <div class="table-wrap mt-4">
-                    <table class="table-clean">
+                    <table class="table-clean w-full text-sm">
                         <thead>
-                            <tr>
-                                <th>No</th>
-                                <th>Leader</th>
-                                <th>Jumlah Sub Leader</th>
-                                <th>Total Nomor</th>
-                                <th>Sudah Dihubungi</th>
-                                <th>Dihubungi Bulan Ini</th>
-                                <th>Input Terakhir</th>
+                            <tr class="text-slate-600 text-xs uppercase tracking-wide">
+                                <th class="text-left py-2">No</th>
+                                <th class="text-left py-2">Leader</th>
+                                <th class="text-right py-2">Sudah Dihubungi (Hari Ini)</th>
+                                <th class="text-right py-2">Dihubungi Bulan Ini</th>
+                                <th class="text-left py-2">Input Terakhir</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="divide-y bg-white">
                             @forelse ($summaryLeaders as $leader)
-                                <tr>
-                                    <td>{{ $leaderNumberMap[$leader->id] ?? $loop->iteration }}</td>
-                                    <td class="font-medium">{{ $leader->name }}</td>
-                                    <td>{{ $leader->sub_leaders_count }}</td>
-                                    <td>{{ $leader->contacts_as_leader_count }}</td>
-                                    <td>{{ $leader->contacted_contacts_count }}</td>
-                                    <td>{{ $leader->contacted_contacts_monthly_count }}</td>
-                                    <td>
-                                        {{ $leader->contacts_as_leader_max_created_at ? \Carbon\Carbon::parse($leader->contacts_as_leader_max_created_at)->format('d M Y H:i') : '-' }}
+                                <tr class="hover:bg-slate-50">
+                                    <td class="py-3">{{ $leaderNumberMap[$leader->id] ?? $loop->iteration }}</td>
+                                    <td class="py-3 font-medium">{{ $leader->name }}</td>
+                                    <td class="py-3 text-right">
+                                        <span class="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-700">
+                                            {{ number_format($leader->contacted_contacts_count) }}
+                                        </span>
                                     </td>
+                                    <td class="py-3 text-right">{{ number_format($leader->contacted_contacts_monthly_count) }}</td>
+                                    <td class="py-3 text-left text-slate-600">{{ $leader->contacts_as_leader_max_created_at ? \Carbon\Carbon::parse($leader->contacts_as_leader_max_created_at)->format('d M Y H:i') : '-' }}</td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="7" class="px-4 py-4 text-slate-500">Data leader tidak ditemukan untuk filter ini.</td>
+                                    <td colspan="5" class="px-4 py-4 text-slate-500">Data leader tidak ditemukan untuk filter ini.</td>
                                 </tr>
                             @endforelse
                         </tbody>

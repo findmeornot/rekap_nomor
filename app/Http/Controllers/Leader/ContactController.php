@@ -61,15 +61,26 @@ class ContactController extends Controller
             ->count();
         $contactedThisMonthCount = $this->scopedContacts($user)
             ->where('is_contacted', true)
-            ->whereYear('status_updated_at', now()->year)
-            ->whereMonth('status_updated_at', now()->month)
+            ->where(function (Builder $query) {
+                $query->where(function (Builder $query) {
+                    $query->whereYear('status_updated_at', now()->year)
+                        ->whereMonth('status_updated_at', now()->month);
+                })->orWhere(function (Builder $query) {
+                    $query->whereNull('status_updated_at')
+                        ->whereYear('contacted_at', now()->year)
+                        ->whereMonth('contacted_at', now()->month);
+                });
+            })
             ->count();
 
         $monthlyContactedData = $this->scopedContacts($user)
             ->where('is_contacted', true)
-            ->whereNotNull('status_updated_at')
-            ->get(['status_updated_at'])
-            ->groupBy(fn ($contact) => $contact->status_updated_at->format('Y-m'))
+            ->where(function (Builder $query) {
+                $query->whereNotNull('status_updated_at')
+                    ->orWhereNotNull('contacted_at');
+            })
+            ->get(['status_updated_at', 'contacted_at'])
+            ->groupBy(fn ($contact) => ($contact->status_updated_at ?? $contact->contacted_at)->format('Y-m'))
             ->sortKeys()
             ->map(fn ($contacts, $key) => [
                 'label' => Carbon::createFromFormat('Y-m', $key)->format('M Y'),

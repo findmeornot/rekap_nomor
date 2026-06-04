@@ -29,7 +29,9 @@ class UserManagementController extends Controller
                 ->with('leader:id,name')
                 ->orderBy('name')
                 ->get(),
-            'teams' => Schema::hasTable('teams') ? Team::withCount('members')->orderBy('name')->get() : collect(),
+            'teams' => Schema::hasTable('teams')
+                ? Team::withCount(['members', 'leaders', 'subLeaders'])->orderBy('name')->get()
+                : collect(),
         ]);
     }
 
@@ -56,99 +58,26 @@ class UserManagementController extends Controller
         $validated = $request->validate([
             'team_id' => ['required', Rule::exists('teams', 'id')],
             'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:5120'],
+            'main_marketing_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_MAIN_MARKETING))],
+            'assistant_marketing_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_ASSISTANT_MARKETING))],
         ]);
 
         $rows = $contactImportService->extractRows($request->file('file'));
         if (empty($rows)) {
-            return back()
-                ->withErrors(['file' => 'File kosong atau format kolom tidak dikenali.'])
-                ->withInput();
+            return back()->withErrors(['file' => 'File kosong atau format kolom tidak dikenali.']);
         }
 
         $summary = $contactImportService->importRows($rows, [
-            'team_id' => (int) $validated['team_id'],
-            'input_by' => auth()->id(),
-            'assistant_marketing_id' => null,
-            'main_marketing_id' => null,
-        ]);
-
-        return back()
-            ->with('success', "Import selesai. Berhasil: {$summary['created']}, Duplikat: {$summary['skipped_duplicate']}, Tidak valid: {$summary['skipped_invalid']}.")
-            ->with('import_summary', $summary);
-    }
-
-    public function assignTeam(Request $request, User $user): RedirectResponse
-    {
-        $validated = $request->validate([
-            'team_id' => ['nullable', Rule::exists('teams', 'id')],
-        ]);
-
-        $user->update([
-            'team_id' => $validated['team_id'] ?? null,
-        ]);
-
-        return back()->with('success', 'Tim user berhasil diperbarui.');
-    }
-
-    public function storeLeader(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'password' => ['required', 'string', 'min:8'],
-            'team_id' => ['required', Rule::exists('teams', 'id')],
-        ]);
-
-        User::create([
-            ...$validated,
-            'role' => User::ROLE_MAIN_MARKETING,
-            'main_marketing_id' => null,
-        ]);
-
-        return back()->with('success', 'Marketing Utama berhasil dibuat.');
-    }
-
-    public function storeSubLeader(Request $request): RedirectResponse
-    {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'password' => ['required', 'string', 'min:8'],
-            'team_id' => ['required', Rule::exists('teams', 'id')],
-        ]);
-
-        User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => $validated['password'],
-            'main_marketing_id' => null,
             'team_id' => $validated['team_id'],
-            'role' => User::ROLE_ASSISTANT_MARKETING,
+            'input_by' => auth()->id(),
+            'assistant_marketing_id' => $validated['assistant_marketing_id'] ?? null,
+            'main_marketing_id' => $validated['main_marketing_id'] ?? null,
         ]);
 
-        return back()->with('success', 'Asisten Marketing berhasil dibuat.');
-    }
-
-    public function assignLeader(Request $request, User $subLeader): RedirectResponse
-    {
-        abort_unless($subLeader->role === User::ROLE_ASSISTANT_MARKETING, 404);
-
-        $validated = $request->validate([
-            'main_marketing_id' => [
-                'required',
-                Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_MAIN_MARKETING)),
-            ],
-        ]);
-
-        $leader = User::where('role', User::ROLE_MAIN_MARKETING)
-            ->findOrFail($validated['main_marketing_id']);
-
-        $subLeader->update([
-            'main_marketing_id' => $leader->id,
-            'team_id' => $leader->team_id,
-        ]);
-
-        return back()->with('success', 'Leader untuk sub leader berhasil diperbarui.');
+        return back()->with(
+            'success',
+            "Import selesai. Berhasil: {$summary['created']}, Duplikat: {$summary['skipped_duplicate']}, Tidak valid: {$summary['skipped_invalid']}."
+        );
     }
 
     public function contactsIndex(Request $request): View
@@ -163,31 +92,112 @@ class UserManagementController extends Controller
             ->get();
 
         $summaryQuery = Contact::query();
-        $this->applyDateFilter($summaryQuery, $filters);
-        $this->applyListFilters($summaryQuery, $uiFilters);
+        \App\Services\ContactFilter::applyDateFilter($summaryQuery, $filters);
+        \App\Services\ContactFilter::applyListFilters($summaryQuery, $uiFilters);
 
-        $summaryRows = $summaryQuery
+        $summaryRows = (clone $summaryQuery)
             ->selectRaw("main_marketing_id, COUNT(*) as total_contacts, SUM(CASE WHEN is_contacted = 1 THEN 1 ELSE 0 END) as contacted_contacts, MAX(created_at) as latest_input_at")
             ->groupBy('main_marketing_id')
             ->get()
             ->keyBy('main_marketing_id');
 
-        $monthlyContactedRows = Contact::query()
+        $subLeaderSummaryRows = (clone $summaryQuery)
+            ->join('users as sub_leaders', 'contacts.assistant_marketing_id', '=', 'sub_leaders.id')
+            ->whereNotNull('sub_leaders.main_marketing_id')
+            ->selectRaw('sub_leaders.main_marketing_id as leader_id, COUNT(*) as total_contacts, SUM(CASE WHEN contacts.is_contacted = 1 THEN 1 ELSE 0 END) as contacted_contacts, MAX(contacts.created_at) as latest_input_at')
+            ->groupBy('sub_leaders.main_marketing_id')
+            ->get()
+            ->keyBy('leader_id');
+
+        $monthlyContactedRows = (clone $summaryQuery)
             ->where('is_contacted', true)
-            ->whereYear('status_updated_at', now()->year)
-            ->whereMonth('status_updated_at', now()->month)
+            ->where(function ($query) {
+                $query->where(function ($query) {
+                    $query->whereYear('status_updated_at', now()->year)
+                        ->whereMonth('status_updated_at', now()->month);
+                })->orWhere(function ($query) {
+                    $query->whereNull('status_updated_at')
+                        ->whereYear('contacted_at', now()->year)
+                        ->whereMonth('contacted_at', now()->month);
+                });
+            })
             ->selectRaw('main_marketing_id, COUNT(*) as monthly_contacted_count')
             ->groupBy('main_marketing_id')
             ->get()
             ->keyBy('main_marketing_id');
 
+        // contacted today (per day) - direct
+        $todayContactedRows = (clone $summaryQuery)
+            ->where('is_contacted', true)
+            ->where(function ($query) {
+                $query->where(function ($query) {
+                    $query->whereDate('status_updated_at', now()->toDateString());
+                })->orWhere(function ($query) {
+                    $query->whereNull('status_updated_at')
+                        ->whereDate('contacted_at', now()->toDateString());
+                });
+            })
+            ->selectRaw('main_marketing_id, COUNT(*) as today_contacted_count')
+            ->groupBy('main_marketing_id')
+            ->get()
+            ->keyBy('main_marketing_id');
+
+        // contacted today by sub-leaders
+        $todaySubLeaderContactedRows = (clone $summaryQuery)
+            ->where('is_contacted', true)
+            ->where(function ($query) {
+                $query->where(function ($query) {
+                    $query->whereDate('status_updated_at', now()->toDateString());
+                })->orWhere(function ($query) {
+                    $query->whereNull('status_updated_at')
+                        ->whereDate('contacted_at', now()->toDateString());
+                });
+            })
+            ->join('users as sub_leaders', 'contacts.assistant_marketing_id', '=', 'sub_leaders.id')
+            ->whereNotNull('sub_leaders.main_marketing_id')
+            ->selectRaw('sub_leaders.main_marketing_id as leader_id, COUNT(*) as today_contacted_count')
+            ->groupBy('sub_leaders.main_marketing_id')
+            ->get()
+            ->keyBy('leader_id');
+
+        $monthlySubLeaderContactedRows = (clone $summaryQuery)
+            ->where('is_contacted', true)
+            ->where(function ($query) {
+                $query->where(function ($query) {
+                    $query->whereYear('status_updated_at', now()->year)
+                        ->whereMonth('status_updated_at', now()->month);
+                })->orWhere(function ($query) {
+                    $query->whereNull('status_updated_at')
+                        ->whereYear('contacted_at', now()->year)
+                        ->whereMonth('contacted_at', now()->month);
+                });
+            })
+            ->join('users as sub_leaders', 'contacts.assistant_marketing_id', '=', 'sub_leaders.id')
+            ->whereNotNull('sub_leaders.main_marketing_id')
+            ->selectRaw('sub_leaders.main_marketing_id as leader_id, COUNT(*) as monthly_contacted_count')
+            ->groupBy('sub_leaders.main_marketing_id')
+            ->get()
+            ->keyBy('leader_id');
+
         foreach ($leaders as $leader) {
             $row = $summaryRows->get($leader->id);
+            $subRow = $subLeaderSummaryRows->get($leader->id);
             $monthlyRow = $monthlyContactedRows->get($leader->id);
-            $leader->setAttribute('contacts_as_leader_count', (int) ($row->total_contacts ?? 0));
-            $leader->setAttribute('contacted_contacts_count', (int) ($row->contacted_contacts ?? 0));
-            $leader->setAttribute('contacted_contacts_monthly_count', (int) ($monthlyRow->monthly_contacted_count ?? 0));
-            $leader->setAttribute('contacts_as_leader_max_created_at', $row->latest_input_at ?? null);
+            $monthlySubRow = $monthlySubLeaderContactedRows->get($leader->id);
+
+            $leader->setAttribute('contacts_as_leader_count', (int) (($row->total_contacts ?? 0) + ($subRow->total_contacts ?? 0)));
+            // contacted today (per day)
+            $todayDirect = $todayContactedRows->get($leader->id);
+            $todaySub = $todaySubLeaderContactedRows->get($leader->id);
+            $leader->setAttribute('contacted_contacts_count', (int) (($todayDirect->today_contacted_count ?? 0) + ($todaySub->today_contacted_count ?? 0)));
+            // contacted month (rekapan selama bulan berjalan)
+            $leader->setAttribute('contacted_contacts_monthly_count', (int) (($monthlyRow->monthly_contacted_count ?? 0) + ($monthlySubRow->monthly_contacted_count ?? 0)));
+
+            $latestInputAt = $row->latest_input_at ?? null;
+            if ($subRow && $subRow->latest_input_at && (! $latestInputAt || $subRow->latest_input_at > $latestInputAt)) {
+                $latestInputAt = $subRow->latest_input_at;
+            }
+            $leader->setAttribute('contacts_as_leader_max_created_at', $latestInputAt);
         }
 
         $leaderNumberMap = $leaders
@@ -202,11 +212,14 @@ class UserManagementController extends Controller
         $contactsQuery = Contact::query()
             ->with(['leader:id,name', 'subLeader:id,name'])
             ->latest();
-        $this->applyDateFilter($contactsQuery, $filters);
-        $this->applyListFilters($contactsQuery, $uiFilters);
+        \App\Services\ContactFilter::applyDateFilter($contactsQuery, $filters);
+        \App\Services\ContactFilter::applyListFilters($contactsQuery, $uiFilters);
 
         if ($selectedLeaderId > 0) {
-            $contactsQuery->where('main_marketing_id', $selectedLeaderId);
+            $contactsQuery->where(function (Builder $query) use ($selectedLeaderId) {
+                $query->where('main_marketing_id', $selectedLeaderId)
+                    ->orWhereHas('subLeader', fn (Builder $subLeaderQuery) => $subLeaderQuery->where('main_marketing_id', $selectedLeaderId));
+            });
         }
 
         $perPage = (int) $uiFilters['per_page'];
@@ -241,47 +254,6 @@ class UserManagementController extends Controller
     }
 
     /**
-     * @param Builder<Contact> $query
-     * @param array{period: string, start_date: string|null, end_date: string|null} $filters
-     */
-    private function applyDateFilter(Builder $query, array $filters): void
-    {
-        $period = $filters['period'];
-
-        if ($period === '7d') {
-            $query->where('created_at', '>=', now()->subDays(6)->startOfDay());
-            return;
-        }
-
-        if ($period === '30d') {
-            $query->where('created_at', '>=', now()->subDays(29)->startOfDay());
-            return;
-        }
-
-        if ($period === 'custom') {
-            $startDate = $filters['start_date']
-                ? Carbon::parse($filters['start_date'])->startOfDay()
-                : null;
-            $endDate = $filters['end_date']
-                ? Carbon::parse($filters['end_date'])->endOfDay()
-                : null;
-
-            if ($startDate && $endDate) {
-                $query->whereBetween('created_at', [$startDate, $endDate]);
-                return;
-            }
-
-            if ($startDate) {
-                $query->where('created_at', '>=', $startDate);
-            }
-
-            if ($endDate) {
-                $query->where('created_at', '<=', $endDate);
-            }
-        }
-    }
-
-    /**
      * @return array{q: string|null, status: string, per_page: int}
      */
     private function resolveUiFilters(Request $request): array
@@ -299,31 +271,7 @@ class UserManagementController extends Controller
         ];
     }
 
-    /**
-     * @param Builder<Contact> $query
-     * @param array{q: string|null, status: string, per_page: int} $uiFilters
-     */
-    private function applyListFilters(Builder $query, array $uiFilters): void
-    {
-        if ($uiFilters['q']) {
-            $keyword = $uiFilters['q'];
-            $query->where(function (Builder $builder) use ($keyword): void {
-                $builder
-                    ->where('contact_name', 'like', "%{$keyword}%")
-                    ->orWhere('phone', 'like', "%{$keyword}%")
-                    ->orWhereHas('leader', fn (Builder $leaderQuery) => $leaderQuery->where('name', 'like', "%{$keyword}%"))
-                    ->orWhereHas('subLeader', fn (Builder $subLeaderQuery) => $subLeaderQuery->where('name', 'like', "%{$keyword}%"));
-            });
-        }
-
-        if ($uiFilters['status'] === 'contacted') {
-            $query->where('is_contacted', true);
-        }
-
-        if ($uiFilters['status'] === 'uncontacted') {
-            $query->where('is_contacted', false);
-        }
-    }
+    // Filtering helpers are provided by \App\Services\ContactFilter to avoid duplication.
 
     public function destroy(Request $request, User $user): RedirectResponse|JsonResponse
     {
