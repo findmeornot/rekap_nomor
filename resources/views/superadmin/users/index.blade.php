@@ -60,7 +60,7 @@
                 </div>
 
                 <div class="panel fade-in-up">
-                    <h3 class="section-title">Tambah Assistant Marketing</h3>
+                    <h3 class="section-title">Tambah Asisten Marketing</h3>
                     <form class="mt-4 space-y-4" method="POST" action="{{ route('superadmin.sub-leaders.store') }}">
                         @csrf
                         <div>
@@ -162,7 +162,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-4 py-4 text-slate-500">Belum ada leader.</td>
+                                    <td colspan="6" class="px-4 py-4 text-slate-500">Belum ada Marketing Utama.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -171,7 +171,7 @@
             </div>
 
             <div class="panel fade-in-up">
-                <h3 class="section-title">Daftar Assistant Marketing</h3>
+                <h3 class="section-title">Daftar Asisten Marketing</h3>
                 <div class="table-wrap mt-4">
                     <table class="table-clean">
                         <thead>
@@ -231,7 +231,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="5" class="px-4 py-4 text-slate-500">Belum ada sub leader.</td>
+                                    <td colspan="5" class="px-4 py-4 text-slate-500">Belum ada Asisten Marketing.</td>
                                 </tr>
                             @endforelse
                         </tbody>

@@ -24,7 +24,7 @@ class NumberRequestController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        $recipients = User::where('role', User::ROLE_MAIN_MARKETING)
+        $recipients = User::where('role', User::ROLE_LEADER)
             ->where('id', '!=', $user->id)
             ->orderBy('name')
             ->get();
@@ -40,18 +40,18 @@ class NumberRequestController extends Controller
     {
         $validated = $request->validate([
             'recipient_id' => ['required', 'integer', 'exists:users,id'],
-            'amount' => ['required', 'integer', 'min:1', 'max:'.User::TARGET_MAIN_MARKETING],
+            'amount' => ['required', 'integer', 'min:1', 'max:'.User::TARGET_LEADER],
             'message' => ['nullable', 'string', 'max:500'],
         ]);
 
         $user = auth()->user();
 
-        if (Contact::where('main_marketing_id', $user->id)->where('is_contacted', false)->exists()) {
+        if (Contact::where('leader_id', $user->id)->where('is_contacted', false)->exists()) {
             return $this->errorResponse('Hanya bisa meminta nomor apabila semua nomor tim sendiri sudah ditangani.');
         }
 
         $recipient = User::where('id', $validated['recipient_id'])
-            ->where('role', User::ROLE_MAIN_MARKETING)
+            ->where('role', User::ROLE_LEADER)
             ->first();
 
         if (! $recipient || $recipient->id === $user->id) {
@@ -85,7 +85,7 @@ class NumberRequestController extends Controller
             'response_message' => ['nullable', 'string', 'max:500'],
         ])['response_message'] ?? null;
 
-        $available = Contact::where('main_marketing_id', $user->id)
+        $available = Contact::where('leader_id', $user->id)
             ->where('is_contacted', false)
             ->count();
 
@@ -93,7 +93,7 @@ class NumberRequestController extends Controller
             return $this->errorResponse('Tidak cukup nomor tidak terhubung untuk dipindahkan.');
         }
 
-        $transferIds = Contact::where('main_marketing_id', $user->id)
+        $transferIds = Contact::where('leader_id', $user->id)
             ->where('is_contacted', false)
             ->orderBy('created_at')
             ->limit($numberRequest->amount)
@@ -102,8 +102,8 @@ class NumberRequestController extends Controller
         DB::transaction(function () use ($numberRequest, $transferIds, $user, $responseMessage) {
             Contact::whereIn('id', $transferIds)
                 ->update([
-                    'main_marketing_id' => $numberRequest->requester_id,
-                    'assistant_marketing_id' => null,
+                    'leader_id' => $numberRequest->requester_id,
+                    'sub_leader_id' => null,
                 ]);
 
             $numberRequest->update([

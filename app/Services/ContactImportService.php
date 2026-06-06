@@ -27,7 +27,7 @@ class ContactImportService
 
     /**
      * @param array<int, array{contact_name: string|null, phone: string}> $rows
-     * @param array{team_id:int,input_by:int,assistant_marketing_id:?int,main_marketing_id:?int,period_key?:string} $context
+     * @param array{team_id:int,input_by:int,sub_leader_id:?int,leader_id:?int,period_key?:string} $context
      * @return array{created:int,skipped_duplicate:int,skipped_invalid:int}
      */
     public function importRows(array $rows, array $context): array
@@ -72,9 +72,9 @@ class ContactImportService
                 'normalized_phone' => $normalizedPhone,
                 'period_key' => $periodKey,
                 'team_id' => $context['team_id'],
-                'assistant_marketing_id' => $context['assistant_marketing_id'] ?? null,
+                'sub_leader_id' => $context['sub_leader_id'] ?? null,
                 'input_by' => $context['input_by'],
-                'main_marketing_id' => $context['main_marketing_id'] ?? null,
+                'leader_id' => $context['leader_id'] ?? null,
                 'status' => Contact::STATUS_UNCONTACTED,
             ]);
 

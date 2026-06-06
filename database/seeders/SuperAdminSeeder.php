@@ -18,7 +18,7 @@ class SuperAdminSeeder extends Seeder
                 'name' => 'Super Admin',
                 'password' => Hash::make('password123'),
                 'role' => User::ROLE_SUPERADMIN,
-                'main_marketing_id' => null,
+                'leader_id' => null,
             ]
         );
     }

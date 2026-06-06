@@ -29,7 +29,7 @@
 
                 <div class="grid gap-6 lg:grid-cols-2">
                     <div class="panel fade-in-up">
-                        <h3 class="section-title">Grafik Harian Assistant Marketing</h3>
+                        <h3 class="section-title">Grafik Harian Asisten Marketing</h3>
                         <p class="section-subtitle">Jumlah input nomor yang kamu tambahkan setiap hari selama 7 hari terakhir, dengan garis target harian.</p>
                         <div class="mt-4">
                             <canvas id="subLeaderDailyChart" width="600" height="320"></canvas>
@@ -47,13 +47,13 @@
                         <p class="mt-2 text-3xl font-bold text-slate-900">{{ $stats['contacted'] }}</p>
                     </div>
                     <div class="stat-card fade-in-up">
-                        <p class="text-sm font-medium text-slate-500">Total Sub Leader</p>
+                        <p class="text-sm font-medium text-slate-500">Total Asisten Marketing</p>
                         <p class="mt-2 text-3xl font-bold text-slate-900">{{ $stats['sub_leaders'] }}</p>
                     </div>
                 </div>
 
                 <div class="panel fade-in-up">
-                    <h3 class="section-title">Sambutan Leader</h3>
+                    <h3 class="section-title">Sambutan Marketing Utama</h3>
                     <p class="section-subtitle">
                         Pantau progres tim kamu dari metrik utama. Tracking "sudah dihubungi" akan aktif setelah fitur follow-up ditambahkan.
                     </p>
@@ -78,8 +78,8 @@
                     </div>
 
                     <div class="panel fade-in-up">
-                        <h3 class="section-title">Grafik Harian Assistant Marketing</h3>
-                        <p class="section-subtitle">Jumlah input nomor tim assistant marketing per hari, dengan garis target harian.</p>
+                        <h3 class="section-title">Grafik Harian Asisten Marketing</h3>
+                        <p class="section-subtitle">Jumlah input nomor tim asisten marketing per hari, dengan garis target harian.</p>
                         <div class="mt-4">
                             <canvas id="assistantDailyChart" width="600" height="320"></canvas>
                         </div>
@@ -88,11 +88,11 @@
             @else
                 <div class="stats-grid stagger lg:grid-cols-4">
                     <div class="stat-card fade-in-up">
-                        <p class="text-sm font-medium text-slate-500">Total Leader</p>
+                        <p class="text-sm font-medium text-slate-500">Total Marketing Utama</p>
                         <p class="mt-2 text-3xl font-bold text-slate-900">{{ $stats['leaders'] }}</p>
                     </div>
                     <div class="stat-card fade-in-up">
-                        <p class="text-sm font-medium text-slate-500">Total Sub Leader</p>
+                        <p class="text-sm font-medium text-slate-500">Total Asisten Marketing</p>
                         <p class="mt-2 text-3xl font-bold text-slate-900">{{ $stats['sub_leaders'] }}</p>
                     </div>
                     <div class="stat-card fade-in-up">
@@ -100,7 +100,7 @@
                         <p class="mt-2 text-3xl font-bold text-slate-900">{{ $stats['contacts'] }}</p>
                     </div>
                     <div class="stat-card fade-in-up">
-                        <p class="text-sm font-medium text-slate-500">Rata-rata / Sub Leader</p>
+                        <p class="text-sm font-medium text-slate-500">Rata-rata / Asisten Marketing</p>
                         <p class="mt-2 text-3xl font-bold text-slate-900">{{ $stats['avg_per_sub_leader'] }}</p>
                     </div>
                 </div>
@@ -111,9 +111,9 @@
                         <div class="mt-4 space-y-2 text-sm text-slate-700">
                             <p>Sub leader belum punya leader: <strong>{{ $meta['sub_leaders_without_leader'] ?? 0 }}</strong></p>
                             <p>
-                                Leader teraktif:
+                                Marketing Utama teraktif:
                                 <strong>{{ $meta['top_leader']?->name ?? '-' }}</strong>
-                                ({{ $meta['top_leader']?->contacts_as_leader_count ?? 0 }} nomor)
+                                ({{ $meta['top_leader']?->contacts_handled_count ?? 0 }} nomor)
                             </p>
                             <p>
                                 Sub leader teraktif:
@@ -127,7 +127,7 @@
                         <h3 class="section-title">Aksi Cepat Superadmin</h3>
                         <p class="section-subtitle">Kelola struktur tim dan distribusi data dari satu tempat.</p>
                         <div class="mt-5 flex flex-wrap gap-3">
-                            <a href="{{ route('superadmin.users.index') }}" class="btn-main">Kelola Leader &amp; Sub Leader</a>
+                            <a href="{{ route('superadmin.users.index') }}" class="btn-main">Kelola Marketing Utama &amp; Asisten Marketing</a>
                             <a href="{{ route('superadmin.contacts.index') }}" class="btn-subtle">Lihat Data Per Marketing Utama</a>
                         </div>
                     </div>
@@ -135,7 +135,7 @@
                     <div class="panel fade-in-up">
                         <div class="flex items-center justify-between">
                             <div>
-                                <h3 class="section-title">Diagram Perbandingan Antar Leader</h3>
+                                <h3 class="section-title">Diagram Perbandingan Antar Marketing Utama</h3>
                                 <p class="section-subtitle">Bandingkan performa leader berdasarkan jumlah nomor yang sudah dihubungi.</p>
                             </div>
                             <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-2">
@@ -156,7 +156,7 @@
                     <div class="panel fade-in-up">
                         <div>
                             <h3 class="section-title">Diagram Perbandingan Antar Tim</h3>
-                            <p class="section-subtitle">Bandingkan performa tim berdasarkan leader dan sub-leader di bawahnya.</p>
+                            <p class="section-subtitle">Bandingkan performa tim berdasarkan Marketing Utama dan sub-leader di bawahnya.</p>
                         </div>
                         <div class="mt-4" id="teamComparisonChartContainer">
                             <canvas id="teamComparisonChart" width="600" height="320"></canvas>
@@ -166,7 +166,7 @@
                     <div class="panel fade-in-up">
                         <div class="flex items-center justify-between">
                             <div>
-                                <h3 class="section-title">Diagram Perbandingan Antar Sub Leader</h3>
+                                <h3 class="section-title">Diagram Perbandingan Antar Asisten Marketing</h3>
                                 <p class="section-subtitle">Bandingkan total nomor, sudah dihubungi, dan belum dihubungi untuk setiap sub leader.</p>
                             </div>
                             <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-2">
@@ -397,7 +397,7 @@
                     'leaderComparisonChart',
                     'superadminChartContainer',
                     leaderData,
-                    'Perbandingan Leader (Sudah Dihubungi) ' + ' (' + leaderMonthDisplay + ')'
+                    'Perbandingan Marketing Utama (Sudah Dihubungi) ' + ' (' + leaderMonthDisplay + ')'
                 );
 
                 renderComparisonChart(
@@ -411,7 +411,7 @@
                     'subLeaderComparisonChart',
                     'superadminSubLeaderChartContainer',
                     subLeaderData,
-                    'Perbandingan Sub Leader' + ' (' + subLeaderMonthDisplay + ')'
+                    'Perbandingan Asisten Marketing' + ' (' + subLeaderMonthDisplay + ')'
                 );
 
                 const monthlyCanvas = document.getElementById('monthlyTotalsChart');
@@ -589,7 +589,7 @@
                 }
 
                 if (dailyLabels.length && assistantDailyData.length) {
-                    renderBarChart('assistantDailyChart', 'Grafik Harian Assistant Marketing', dailyLabels, [
+                    renderBarChart('assistantDailyChart', 'Grafik Harian Asisten Marketing', dailyLabels, [
                         {
                             label: 'Input Harian',
                             data: assistantDailyData,
@@ -608,7 +608,7 @@
                 }
 
                 if (dailyLabels.length && subLeaderDailyData.length) {
-                    renderBarChart('subLeaderDailyChart', 'Grafik Harian Assistant Marketing', dailyLabels, [
+                    renderBarChart('subLeaderDailyChart', 'Grafik Harian Asisten Marketing', dailyLabels, [
                         {
                             label: 'Input Harian',
                             data: subLeaderDailyData,

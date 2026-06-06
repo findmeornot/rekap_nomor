@@ -21,11 +21,11 @@ class UserManagementController extends Controller
     public function index(): View
     {
         return view('superadmin.users.index', [
-            'leaders' => User::where('role', User::ROLE_MAIN_MARKETING)
+            'leaders' => User::where('role', User::ROLE_LEADER)
                 ->withCount('subLeaders')
                 ->orderBy('name')
                 ->get(),
-            'subLeaders' => User::where('role', User::ROLE_ASSISTANT_MARKETING)
+            'subLeaders' => User::where('role', User::ROLE_SUB_LEADER)
                 ->with('leader:id,name')
                 ->orderBy('name')
                 ->get(),
@@ -46,6 +46,57 @@ class UserManagementController extends Controller
         return back()->with('success', 'Tim berhasil dibuat.');
     }
 
+    public function storeLeader(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
+            'password' => ['required', 'string', 'min:8'],
+            'team_id' => ['required', Rule::exists('teams', 'id')],
+        ]);
+
+        User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => bcrypt($validated['password']),
+            'role' => User::ROLE_LEADER,
+            'team_id' => $validated['team_id'],
+        ]);
+
+        return back()->with('success', 'Marketing Utama berhasil dibuat.');
+    }
+
+    public function storeSubLeader(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
+            'password' => ['required', 'string', 'min:8'],
+            'team_id' => ['required', Rule::exists('teams', 'id')],
+        ]);
+
+        User::create([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => bcrypt($validated['password']),
+            'role' => User::ROLE_SUB_LEADER,
+            'team_id' => $validated['team_id'],
+        ]);
+
+        return back()->with('success', 'Asisten Marketing berhasil dibuat.');
+    }
+
+    public function assignTeam(Request $request, User $user): RedirectResponse
+    {
+        $validated = $request->validate([
+            'team_id' => ['nullable', Rule::exists('teams', 'id')],
+        ]);
+
+        $user->update(['team_id' => $validated['team_id']]);
+
+        return back()->with('success', 'Tim berhasil diubah.');
+    }
+
     public function importForm(): View
     {
         return view('superadmin.import', [
@@ -58,8 +109,8 @@ class UserManagementController extends Controller
         $validated = $request->validate([
             'team_id' => ['required', Rule::exists('teams', 'id')],
             'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:5120'],
-            'main_marketing_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_MAIN_MARKETING))],
-            'assistant_marketing_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_ASSISTANT_MARKETING))],
+            'leader_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_LEADER))],
+            'sub_leader_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_SUB_LEADER))],
         ]);
 
         $rows = $contactImportService->extractRows($request->file('file'));
@@ -70,8 +121,8 @@ class UserManagementController extends Controller
         $summary = $contactImportService->importRows($rows, [
             'team_id' => $validated['team_id'],
             'input_by' => auth()->id(),
-            'assistant_marketing_id' => $validated['assistant_marketing_id'] ?? null,
-            'main_marketing_id' => $validated['main_marketing_id'] ?? null,
+            'sub_leader_id' => $validated['sub_leader_id'] ?? null,
+            'leader_id' => $validated['leader_id'] ?? null,
         ]);
 
         return back()->with(
@@ -86,7 +137,7 @@ class UserManagementController extends Controller
         $uiFilters = $this->resolveUiFilters($request);
         $selectedLeaderId = $request->integer('leader_id');
 
-        $leaders = User::where('role', User::ROLE_MAIN_MARKETING)
+        $leaders = User::where('role', User::ROLE_LEADER)
             ->withCount('subLeaders')
             ->orderBy('id')
             ->get();
@@ -96,16 +147,16 @@ class UserManagementController extends Controller
         \App\Services\ContactFilter::applyListFilters($summaryQuery, $uiFilters);
 
         $summaryRows = (clone $summaryQuery)
-            ->selectRaw("main_marketing_id, COUNT(*) as total_contacts, SUM(CASE WHEN is_contacted = 1 THEN 1 ELSE 0 END) as contacted_contacts, MAX(created_at) as latest_input_at")
-            ->groupBy('main_marketing_id')
+            ->selectRaw("leader_id, COUNT(*) as total_contacts, SUM(CASE WHEN is_contacted = 1 THEN 1 ELSE 0 END) as contacted_contacts, MAX(created_at) as latest_input_at")
+            ->groupBy('leader_id')
             ->get()
-            ->keyBy('main_marketing_id');
+            ->keyBy('leader_id');
 
         $subLeaderSummaryRows = (clone $summaryQuery)
-            ->join('users as sub_leaders', 'contacts.assistant_marketing_id', '=', 'sub_leaders.id')
-            ->whereNotNull('sub_leaders.main_marketing_id')
-            ->selectRaw('sub_leaders.main_marketing_id as leader_id, COUNT(*) as total_contacts, SUM(CASE WHEN contacts.is_contacted = 1 THEN 1 ELSE 0 END) as contacted_contacts, MAX(contacts.created_at) as latest_input_at')
-            ->groupBy('sub_leaders.main_marketing_id')
+            ->join('users as sub_leaders', 'contacts.sub_leader_id', '=', 'sub_leaders.id')
+            ->whereNotNull('sub_leaders.leader_id')
+            ->selectRaw('sub_leaders.leader_id as leader_id, COUNT(*) as total_contacts, SUM(CASE WHEN contacts.is_contacted = 1 THEN 1 ELSE 0 END) as contacted_contacts, MAX(contacts.created_at) as latest_input_at')
+            ->groupBy('sub_leaders.leader_id')
             ->get()
             ->keyBy('leader_id');
 
@@ -121,10 +172,10 @@ class UserManagementController extends Controller
                         ->whereMonth('contacted_at', now()->month);
                 });
             })
-            ->selectRaw('main_marketing_id, COUNT(*) as monthly_contacted_count')
-            ->groupBy('main_marketing_id')
+            ->selectRaw('leader_id, COUNT(*) as monthly_contacted_count')
+            ->groupBy('leader_id')
             ->get()
-            ->keyBy('main_marketing_id');
+            ->keyBy('leader_id');
 
         // contacted today (per day) - direct
         $todayContactedRows = (clone $summaryQuery)
@@ -137,10 +188,10 @@ class UserManagementController extends Controller
                         ->whereDate('contacted_at', now()->toDateString());
                 });
             })
-            ->selectRaw('main_marketing_id, COUNT(*) as today_contacted_count')
-            ->groupBy('main_marketing_id')
+            ->selectRaw('leader_id, COUNT(*) as today_contacted_count')
+            ->groupBy('leader_id')
             ->get()
-            ->keyBy('main_marketing_id');
+            ->keyBy('leader_id');
 
         // contacted today by sub-leaders
         $todaySubLeaderContactedRows = (clone $summaryQuery)
@@ -153,10 +204,10 @@ class UserManagementController extends Controller
                         ->whereDate('contacted_at', now()->toDateString());
                 });
             })
-            ->join('users as sub_leaders', 'contacts.assistant_marketing_id', '=', 'sub_leaders.id')
-            ->whereNotNull('sub_leaders.main_marketing_id')
-            ->selectRaw('sub_leaders.main_marketing_id as leader_id, COUNT(*) as today_contacted_count')
-            ->groupBy('sub_leaders.main_marketing_id')
+            ->join('users as sub_leaders', 'contacts.sub_leader_id', '=', 'sub_leaders.id')
+            ->whereNotNull('sub_leaders.leader_id')
+            ->selectRaw('sub_leaders.leader_id as leader_id, COUNT(*) as today_contacted_count')
+            ->groupBy('sub_leaders.leader_id')
             ->get()
             ->keyBy('leader_id');
 
@@ -172,10 +223,10 @@ class UserManagementController extends Controller
                         ->whereMonth('contacted_at', now()->month);
                 });
             })
-            ->join('users as sub_leaders', 'contacts.assistant_marketing_id', '=', 'sub_leaders.id')
-            ->whereNotNull('sub_leaders.main_marketing_id')
-            ->selectRaw('sub_leaders.main_marketing_id as leader_id, COUNT(*) as monthly_contacted_count')
-            ->groupBy('sub_leaders.main_marketing_id')
+            ->join('users as sub_leaders', 'contacts.sub_leader_id', '=', 'sub_leaders.id')
+            ->whereNotNull('sub_leaders.leader_id')
+            ->selectRaw('sub_leaders.leader_id as leader_id, COUNT(*) as monthly_contacted_count')
+            ->groupBy('sub_leaders.leader_id')
             ->get()
             ->keyBy('leader_id');
 
@@ -217,8 +268,8 @@ class UserManagementController extends Controller
 
         if ($selectedLeaderId > 0) {
             $contactsQuery->where(function (Builder $query) use ($selectedLeaderId) {
-                $query->where('main_marketing_id', $selectedLeaderId)
-                    ->orWhereHas('subLeader', fn (Builder $subLeaderQuery) => $subLeaderQuery->where('main_marketing_id', $selectedLeaderId));
+                $query->where('leader_id', $selectedLeaderId)
+                    ->orWhereHas('subLeader', fn (Builder $subLeaderQuery) => $subLeaderQuery->where('leader_id', $selectedLeaderId));
             });
         }
 
@@ -276,7 +327,7 @@ class UserManagementController extends Controller
     public function destroy(Request $request, User $user): RedirectResponse|JsonResponse
     {
         // Only allow deleting marketing users (leaders or assistants)
-        if (!in_array($user->role, [User::ROLE_MAIN_MARKETING, User::ROLE_ASSISTANT_MARKETING], true)) {
+        if (!in_array($user->role, [User::ROLE_LEADER, User::ROLE_SUB_LEADER], true)) {
             if ($request->wantsJson()) {
                 return response()->json([
                     'ok' => false,
@@ -287,15 +338,15 @@ class UserManagementController extends Controller
             return back()->withErrors(['user' => 'Hanya user marketing yang dapat dihapus.']);
         }
 
-        // If deleting a main marketing (leader), detach it from its sub-leaders and contacts
-        if ($user->role === User::ROLE_MAIN_MARKETING) {
-            User::where('main_marketing_id', $user->id)->update(['main_marketing_id' => null]);
-            Contact::where('main_marketing_id', $user->id)->update(['main_marketing_id' => null]);
+        // If deleting a marketing utama (leader), detach it from its sub-leaders and contacts
+        if ($user->role === User::ROLE_LEADER) {
+            User::where('leader_id', $user->id)->update(['leader_id' => null]);
+            Contact::where('leader_id', $user->id)->update(['leader_id' => null]);
         }
 
-        // If deleting an assistant marketing, detach it from contacts
-        if ($user->role === User::ROLE_ASSISTANT_MARKETING) {
-            Contact::where('assistant_marketing_id', $user->id)->update(['assistant_marketing_id' => null]);
+        // If deleting an asisten marketing, detach it from contacts
+        if ($user->role === User::ROLE_SUB_LEADER) {
+            Contact::where('sub_leader_id', $user->id)->update(['sub_leader_id' => null]);
         }
 
         $user->delete();

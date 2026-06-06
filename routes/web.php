@@ -41,7 +41,7 @@ Route::middleware(['auth', 'role:superadmin'])
             ->name('users.destroy');
     });
 
-Route::middleware(['auth', 'role:main_marketing'])
+Route::middleware(['auth', 'role:leader'])
     ->prefix('leader')
     ->name('leader.')
     ->group(function (): void {
@@ -56,7 +56,7 @@ Route::middleware(['auth', 'role:main_marketing'])
         Route::patch('/requests/{numberRequest}/reject', [LeaderNumberRequestController::class, 'reject'])->name('requests.reject');
     });
 
-Route::middleware(['auth', 'role:assistant_marketing'])
+Route::middleware(['auth', 'role:sub_leader'])
     ->prefix('sub-leader')
     ->name('subleader.')
     ->group(function (): void {

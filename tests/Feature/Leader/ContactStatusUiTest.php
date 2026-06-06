@@ -17,15 +17,15 @@ class ContactStatusUiTest extends TestCase
         $team = Team::create(['name' => 'Tim UI Status']);
 
         $leader = User::factory()->create([
-            'role' => User::ROLE_MAIN_MARKETING,
+            'role' => User::ROLE_LEADER,
             'team_id' => $team->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $subLeader = User::factory()->create([
-            'role' => User::ROLE_ASSISTANT_MARKETING,
+            'role' => User::ROLE_SUB_LEADER,
             'team_id' => $team->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         Contact::create([
@@ -33,9 +33,9 @@ class ContactStatusUiTest extends TestCase
             'normalized_phone' => '628333333333',
             'period_key' => Contact::activePeriodKey(),
             'team_id' => $team->id,
-            'assistant_marketing_id' => $subLeader->id,
+            'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
             'status' => Contact::STATUS_UNCONTACTED,
         ]);
 

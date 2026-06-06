@@ -17,15 +17,15 @@ class ContactStatusTest extends TestCase
         $team = Team::create(['name' => 'Tim Status']);
 
         $leader = User::factory()->create([
-            'role' => User::ROLE_MAIN_MARKETING,
+            'role' => User::ROLE_LEADER,
             'team_id' => $team->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $subLeader = User::factory()->create([
-            'role' => User::ROLE_ASSISTANT_MARKETING,
+            'role' => User::ROLE_SUB_LEADER,
             'team_id' => $team->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $contact = Contact::create([
@@ -33,9 +33,9 @@ class ContactStatusTest extends TestCase
             'normalized_phone' => '628111111111',
             'period_key' => Contact::activePeriodKey(),
             'team_id' => $team->id,
-            'assistant_marketing_id' => $subLeader->id,
+            'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
             'status' => Contact::STATUS_UNCONTACTED,
         ]);
 
@@ -62,15 +62,15 @@ class ContactStatusTest extends TestCase
         $team = Team::create(['name' => 'Tim Reset']);
 
         $leader = User::factory()->create([
-            'role' => User::ROLE_MAIN_MARKETING,
+            'role' => User::ROLE_LEADER,
             'team_id' => $team->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $subLeader = User::factory()->create([
-            'role' => User::ROLE_ASSISTANT_MARKETING,
+            'role' => User::ROLE_SUB_LEADER,
             'team_id' => $team->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $contact = Contact::create([
@@ -78,7 +78,7 @@ class ContactStatusTest extends TestCase
             'normalized_phone' => '628222222222',
             'period_key' => Contact::activePeriodKey(),
             'team_id' => $team->id,
-            'assistant_marketing_id' => $subLeader->id,
+            'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,
             'status' => Contact::STATUS_CONTACTED,
             'status_updated_by' => $leader->id,

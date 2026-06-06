@@ -17,15 +17,15 @@ class ContactStoreTest extends TestCase
         $team = Team::create(['name' => 'Tim Test']);
 
         $leader = User::factory()->create([
-            'role' => User::ROLE_MAIN_MARKETING,
+            'role' => User::ROLE_LEADER,
             'team_id' => $team->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $subLeader = User::factory()->create([
-            'role' => User::ROLE_ASSISTANT_MARKETING,
+            'role' => User::ROLE_SUB_LEADER,
             'team_id' => $team->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         return [$team, $leader, $subLeader];
@@ -41,9 +41,9 @@ class ContactStoreTest extends TestCase
             'normalized_phone' => '628111111001',
             'period_key' => Contact::activePeriodKey(),
             'team_id' => $subLeader->team_id,
-            'assistant_marketing_id' => $subLeader->id,
+            'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $response = $this->actingAs($subLeader)
@@ -60,9 +60,9 @@ class ContactStoreTest extends TestCase
             'normalized_phone' => '6281234567890',
             'contact_name' => 'Batch Input',
             'team_id' => $subLeader->team_id,
-            'assistant_marketing_id' => $subLeader->id,
+            'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
             'period_key' => Contact::activePeriodKey(),
         ]);
 
@@ -78,9 +78,9 @@ class ContactStoreTest extends TestCase
             'normalized_phone' => '628123456789',
             'period_key' => now()->subMonth()->format('Y-m'),
             'team_id' => $subLeader->team_id,
-            'assistant_marketing_id' => $subLeader->id,
+            'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $response = $this->actingAs($subLeader)
@@ -102,9 +102,9 @@ class ContactStoreTest extends TestCase
             'normalized_phone' => '628123456789',
             'period_key' => Contact::activePeriodKey(),
             'team_id' => $subLeader->team_id,
-            'assistant_marketing_id' => $subLeader->id,
+            'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $response = $this->actingAs($subLeader)
@@ -120,9 +120,9 @@ class ContactStoreTest extends TestCase
     public function test_store_fails_without_team(): void
     {
         $subLeader = User::factory()->create([
-            'role' => User::ROLE_ASSISTANT_MARKETING,
+            'role' => User::ROLE_SUB_LEADER,
             'team_id' => null,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $response = $this->actingAs($subLeader)
@@ -139,15 +139,15 @@ class ContactStoreTest extends TestCase
     {
         [, , $subLeader] = $this->createTeamUsers();
 
-        for ($index = 1; $index <= User::TARGET_ASSISTANT_MARKETING; $index++) {
+        for ($index = 1; $index <= User::TARGET_SUB_LEADER; $index++) {
             Contact::create([
                 'phone' => '628111111'.str_pad((string) $index, 3, '0', STR_PAD_LEFT),
                 'normalized_phone' => '628111111'.str_pad((string) $index, 3, '0', STR_PAD_LEFT),
                 'period_key' => Contact::activePeriodKey(),
                 'team_id' => $subLeader->team_id,
-                'assistant_marketing_id' => $subLeader->id,
+                'sub_leader_id' => $subLeader->id,
                 'input_by' => $subLeader->id,
-                'main_marketing_id' => null,
+                'leader_id' => null,
             ]);
         }
 
@@ -162,10 +162,10 @@ class ContactStoreTest extends TestCase
             'phone' => '628222222222',
             'normalized_phone' => '628222222222',
             'team_id' => $subLeader->team_id,
-            'assistant_marketing_id' => $subLeader->id,
+            'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,
             'period_key' => Contact::activePeriodKey(),
         ]);
-        $this->assertEquals(User::TARGET_ASSISTANT_MARKETING + 1, Contact::count());
+        $this->assertEquals(User::TARGET_SUB_LEADER + 1, Contact::count());
     }
 }

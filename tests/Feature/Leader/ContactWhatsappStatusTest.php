@@ -17,15 +17,15 @@ class ContactWhatsappStatusTest extends TestCase
         $team = Team::create(['name' => 'Tim WA']);
 
         $leader = User::factory()->create([
-            'role' => User::ROLE_MAIN_MARKETING,
+            'role' => User::ROLE_LEADER,
             'team_id' => $team->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $subLeader = User::factory()->create([
-            'role' => User::ROLE_ASSISTANT_MARKETING,
+            'role' => User::ROLE_SUB_LEADER,
             'team_id' => $team->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $contact = Contact::create([
@@ -34,9 +34,9 @@ class ContactWhatsappStatusTest extends TestCase
             'normalized_phone' => '628123456789',
             'period_key' => Contact::activePeriodKey(),
             'team_id' => $team->id,
-            'assistant_marketing_id' => $subLeader->id,
+            'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
             'status' => Contact::STATUS_UNCONTACTED,
         ]);
 
@@ -57,15 +57,15 @@ class ContactWhatsappStatusTest extends TestCase
         $teamB = Team::create(['name' => 'Tim B']);
 
         $leaderA = User::factory()->create([
-            'role' => User::ROLE_MAIN_MARKETING,
+            'role' => User::ROLE_LEADER,
             'team_id' => $teamA->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $subLeaderB = User::factory()->create([
-            'role' => User::ROLE_ASSISTANT_MARKETING,
+            'role' => User::ROLE_SUB_LEADER,
             'team_id' => $teamB->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $contact = Contact::create([
@@ -74,9 +74,9 @@ class ContactWhatsappStatusTest extends TestCase
             'normalized_phone' => '628123123123',
             'period_key' => Contact::activePeriodKey(),
             'team_id' => $teamB->id,
-            'assistant_marketing_id' => $subLeaderB->id,
+            'sub_leader_id' => $subLeaderB->id,
             'input_by' => $subLeaderB->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
             'status' => Contact::STATUS_UNCONTACTED,
         ]);
 

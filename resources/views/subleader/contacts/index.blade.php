@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div>
             <h2 class="text-2xl font-semibold leading-tight text-slate-900">
-                Input Nomor Sub Leader
+                Input Nomor Asisten Marketing
             </h2>
             <p class="mt-1 text-sm text-slate-600">Input satuan atau massal, dengan validasi duplikat otomatis.</p>
         </div>

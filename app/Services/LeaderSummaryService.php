@@ -24,16 +24,16 @@ class LeaderSummaryService
         \App\Services\ContactFilter::applyListFilters($summaryQuery, $uiFilters);
 
         $summaryRows = (clone $summaryQuery)
-            ->selectRaw("main_marketing_id, COUNT(*) as total_contacts, SUM(CASE WHEN is_contacted = 1 THEN 1 ELSE 0 END) as contacted_contacts, MAX(created_at) as latest_input_at")
-            ->groupBy('main_marketing_id')
+            ->selectRaw("leader_id, COUNT(*) as total_contacts, SUM(CASE WHEN is_contacted = 1 THEN 1 ELSE 0 END) as contacted_contacts, MAX(created_at) as latest_input_at")
+            ->groupBy('leader_id')
             ->get()
-            ->keyBy('main_marketing_id');
+            ->keyBy('leader_id');
 
         $subLeaderSummaryRows = (clone $summaryQuery)
-            ->join('users as sub_leaders', 'contacts.assistant_marketing_id', '=', 'sub_leaders.id')
-            ->whereNotNull('sub_leaders.main_marketing_id')
-            ->selectRaw('sub_leaders.main_marketing_id as leader_id, COUNT(*) as total_contacts, SUM(CASE WHEN contacts.is_contacted = 1 THEN 1 ELSE 0 END) as contacted_contacts, MAX(contacts.created_at) as latest_input_at')
-            ->groupBy('sub_leaders.main_marketing_id')
+            ->join('users as sub_leaders', 'contacts.sub_leader_id', '=', 'sub_leaders.id')
+            ->whereNotNull('sub_leaders.leader_id')
+            ->selectRaw('sub_leaders.leader_id as leader_id, COUNT(*) as total_contacts, SUM(CASE WHEN contacts.is_contacted = 1 THEN 1 ELSE 0 END) as contacted_contacts, MAX(contacts.created_at) as latest_input_at')
+            ->groupBy('sub_leaders.leader_id')
             ->get()
             ->keyBy('leader_id');
 
@@ -49,10 +49,10 @@ class LeaderSummaryService
                         ->whereMonth('contacted_at', now()->month);
                 });
             })
-            ->selectRaw('main_marketing_id, COUNT(*) as monthly_contacted_count')
-            ->groupBy('main_marketing_id')
+            ->selectRaw('leader_id, COUNT(*) as monthly_contacted_count')
+            ->groupBy('leader_id')
             ->get()
-            ->keyBy('main_marketing_id');
+            ->keyBy('leader_id');
 
         $monthlySubLeaderContactedRows = (clone $summaryQuery)
             ->where('is_contacted', true)
@@ -66,10 +66,10 @@ class LeaderSummaryService
                         ->whereMonth('contacted_at', now()->month);
                 });
             })
-            ->join('users as sub_leaders', 'contacts.assistant_marketing_id', '=', 'sub_leaders.id')
-            ->whereNotNull('sub_leaders.main_marketing_id')
-            ->selectRaw('sub_leaders.main_marketing_id as leader_id, COUNT(*) as monthly_contacted_count')
-            ->groupBy('sub_leaders.main_marketing_id')
+            ->join('users as sub_leaders', 'contacts.sub_leader_id', '=', 'sub_leaders.id')
+            ->whereNotNull('sub_leaders.leader_id')
+            ->selectRaw('sub_leaders.leader_id as leader_id, COUNT(*) as monthly_contacted_count')
+            ->groupBy('sub_leaders.leader_id')
             ->get()
             ->keyBy('leader_id');
 
@@ -84,10 +84,10 @@ class LeaderSummaryService
                         ->whereDate('contacted_at', now()->toDateString());
                 });
             })
-            ->selectRaw('main_marketing_id, COUNT(*) as today_contacted_count')
-            ->groupBy('main_marketing_id')
+            ->selectRaw('leader_id, COUNT(*) as today_contacted_count')
+            ->groupBy('leader_id')
             ->get()
-            ->keyBy('main_marketing_id');
+            ->keyBy('leader_id');
 
         $todaySubLeaderContactedRows = (clone $summaryQuery)
             ->where('is_contacted', true)
@@ -99,10 +99,10 @@ class LeaderSummaryService
                         ->whereDate('contacted_at', now()->toDateString());
                 });
             })
-            ->join('users as sub_leaders', 'contacts.assistant_marketing_id', '=', 'sub_leaders.id')
-            ->whereNotNull('sub_leaders.main_marketing_id')
-            ->selectRaw('sub_leaders.main_marketing_id as leader_id, COUNT(*) as today_contacted_count')
-            ->groupBy('sub_leaders.main_marketing_id')
+            ->join('users as sub_leaders', 'contacts.sub_leader_id', '=', 'sub_leaders.id')
+            ->whereNotNull('sub_leaders.leader_id')
+            ->selectRaw('sub_leaders.leader_id as leader_id, COUNT(*) as today_contacted_count')
+            ->groupBy('sub_leaders.leader_id')
             ->get()
             ->keyBy('leader_id');
 

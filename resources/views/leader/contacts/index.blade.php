@@ -3,7 +3,7 @@
     <x-slot name="header">
         <div>
             <h2 class="text-2xl font-semibold leading-tight text-slate-900">
-                Rekap Nomor Leader
+                Rekap Nomor Marketing Utama
             </h2>
             <p class="mt-1 text-sm text-slate-600">Pantau semua input nomor dari sub leader di bawah kamu.</p>
         </div>
@@ -14,11 +14,11 @@
             <div class="panel fade-in-up">
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                        <h3 class="section-title">Sub Leader Saya</h3>
-                        <p class="section-subtitle">Pilih assistant marketing untuk melihat data yang lebih spesifik.</p>
+                        <h3 class="section-title">Asisten Marketing Saya</h3>
+                        <p class="section-subtitle">Pilih asisten marketing untuk melihat data yang lebih spesifik.</p>
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        <a href="{{ route('leader.contacts.export', request()->only('assistant_marketing_id', 'period', 'start_date', 'end_date', 'q', 'status')) }}" class="btn-main">Export CSV</a>
+                        <a href="{{ route('leader.contacts.export', request()->only('sub_leader_id', 'period', 'start_date', 'end_date', 'q', 'status')) }}" class="btn-main">Export CSV</a>
                     </div>
                 </div>
 
@@ -33,10 +33,10 @@
                             aria-label="Cari data kontak"
                             class="xl:col-span-2"
                         />
-                        <select name="assistant_marketing_id" aria-label="Pilih assistant marketing">
-                            <option value="">Semua Assistant Marketing</option>
+                        <select name="sub_leader_id" aria-label="Pilih asisten marketing">
+                            <option value="">Semua Asisten Marketing</option>
                             @foreach ($subLeaders as $subLeader)
-                                <option value="{{ $subLeader->id }}" @selected($selectedAssistantMarketingId === $subLeader->id)>
+                                <option value="{{ $subLeader->id }}" @selected($selectedSubLeaderId === $subLeader->id)>
                                     {{ $subLeader->name }}
                                 </option>
                             @endforeach
@@ -72,7 +72,7 @@
 
                     <div class="flex flex-wrap items-center gap-2">
                         <button type="submit" class="btn-main">Terapkan</button>
-                        @if ($selectedAssistantMarketingId || ($filters['period'] ?? 'all') !== 'all' || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || ($uiFilters['q'] ?? null) || ($uiFilters['status'] ?? 'all') !== 'all' || ($uiFilters['per_page'] ?? 20) !== 20)
+                        @if ($selectedSubLeaderId || ($filters['period'] ?? 'all') !== 'all' || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || ($uiFilters['q'] ?? null) || ($uiFilters['status'] ?? 'all') !== 'all' || ($uiFilters['per_page'] ?? 20) !== 20)
                             <a href="{{ route('leader.contacts.index') }}" class="btn-subtle">Reset Semua Filter</a>
                         @endif
                     </div>
@@ -81,14 +81,14 @@
                 <div class="mt-4 flex flex-wrap gap-2">
                     <a
                         href="{{ route('leader.contacts.index', request()->only('period', 'start_date', 'end_date')) }}"
-                        class="chip {{ $selectedAssistantMarketingId ? '' : 'border-blue-200 bg-blue-50 text-blue-700' }}"
+                        class="chip {{ $selectedSubLeaderId ? '' : 'border-blue-200 bg-blue-50 text-blue-700' }}"
                     >
-                        Semua Assistant Marketing
+                        Semua Asisten Marketing
                     </a>
                     @forelse ($subLeaders as $subLeader)
                         <a
-                            href="{{ route('leader.contacts.index', array_merge(request()->only('period', 'start_date', 'end_date'), ['assistant_marketing_id' => $subLeader->id])) }}"
-                            class="chip {{ $selectedAssistantMarketingId === $subLeader->id ? 'border-blue-200 bg-blue-50 text-blue-700' : '' }}"
+                            href="{{ route('leader.contacts.index', array_merge(request()->only('period', 'start_date', 'end_date'), ['sub_leader_id' => $subLeader->id])) }}"
+                            class="chip {{ $selectedSubLeaderId === $subLeader->id ? 'border-blue-200 bg-blue-50 text-blue-700' : '' }}"
                         >
                             {{ $subLeader->name }} ({{ $subLeader->contacts_entered_count }} nomor)
                         </a>
@@ -99,7 +99,7 @@
             </div>
 
             <div class="panel fade-in-up">
-                <h3 class="section-title">Ringkasan Leader</h3>
+                <h3 class="section-title">Ringkasan Marketing Utama</h3>
                 <div class="stats-grid mt-4">
                     <div class="stat-card">
                         <p class="text-sm font-medium text-slate-500">Total Kontak Marketing Utama</p>
@@ -124,10 +124,10 @@
             <div class="panel fade-in-up">
                 <h3 class="section-title">Daftar Nomor</h3>
                 <p class="section-subtitle">Total ditemukan: <strong id="total-found-count">{{ number_format($contacts->total()) }}</strong> data.</p>
-                @if ($selectedAssistantMarketingId)
+                @if ($selectedSubLeaderId)
                     <p class="section-subtitle">
                         Menampilkan data dari:
-                        <strong>{{ $subLeaders->firstWhere('id', $selectedAssistantMarketingId)?->name ?? '-' }}</strong>
+                        <strong>{{ $subLeaders->firstWhere('id', $selectedSubLeaderId)?->name ?? '-' }}</strong>
                     </p>
                 @endif
                 @if (($filters['period'] ?? 'all') !== 'all' || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null))

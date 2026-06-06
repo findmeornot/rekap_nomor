@@ -4,7 +4,7 @@
             <h2 class="text-2xl font-semibold leading-tight text-slate-900">
                 Import Kontak ke Tim
             </h2>
-            <p class="mt-1 text-sm text-slate-600">Upload data nomor dan arahkan ke tim tertentu dengan validasi duplikat dan format yang sama seperti import sub leader.</p>
+            <p class="mt-1 text-sm text-slate-600">Upload data nomor dan arahkan ke tim tertentu dengan validasi duplikat dan format yang sama seperti import asisten marketing.</p>
         </div>
     </x-slot>
 

@@ -19,11 +19,11 @@ class Team extends Model
 
     public function leaders(): HasMany
     {
-        return $this->members()->where('role', User::ROLE_MAIN_MARKETING);
+        return $this->members()->where('role', User::ROLE_LEADER);
     }
 
     public function subLeaders(): HasMany
     {
-        return $this->members()->where('role', User::ROLE_ASSISTANT_MARKETING);
+        return $this->members()->where('role', User::ROLE_SUB_LEADER);
     }
 }

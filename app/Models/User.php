@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'main_marketing_id', 'team_id'])]
+#[Fillable(['name', 'email', 'password', 'role', 'leader_id', 'team_id'])]
 #[Hidden(['password', 'remember_token'])]
 /**
  * @mixin \Illuminate\Database\Eloquent\Builder
@@ -23,14 +23,11 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     public const ROLE_SUPERADMIN = 'superadmin';
-    public const ROLE_LEADER = 'main_marketing';
-    public const ROLE_SUB_LEADER = 'assistant_marketing';
+    public const ROLE_LEADER = 'leader';
+    public const ROLE_SUB_LEADER = 'sub_leader';
 
-    public const ROLE_MAIN_MARKETING = self::ROLE_LEADER;
-    public const ROLE_ASSISTANT_MARKETING = self::ROLE_SUB_LEADER;
-
-    public const TARGET_MAIN_MARKETING = 300;
-    public const TARGET_ASSISTANT_MARKETING = 150;
+    public const TARGET_LEADER = 300;
+    public const TARGET_SUB_LEADER = 150;
 
     /**
      * Get the attributes that should be cast.
@@ -45,24 +42,14 @@ class User extends Authenticatable
         ];
     }
 
-    public function mainMarketing(): BelongsTo
-    {
-        return $this->belongsTo(self::class, 'main_marketing_id');
-    }
-
     public function leader(): BelongsTo
     {
-        return $this->mainMarketing();
-    }
-
-    public function assistantMarketings(): HasMany
-    {
-        return $this->hasMany(self::class, 'main_marketing_id');
+        return $this->belongsTo(self::class, 'leader_id');
     }
 
     public function subLeaders(): HasMany
     {
-        return $this->assistantMarketings();
+        return $this->hasMany(self::class, 'leader_id');
     }
 
     public function team(): BelongsTo
@@ -72,17 +59,17 @@ class User extends Authenticatable
 
     public function contactsEntered(): HasMany
     {
-        return $this->hasMany(Contact::class, 'assistant_marketing_id');
+        return $this->hasMany(Contact::class, 'sub_leader_id');
     }
 
     public function contactsAsLeader(): HasMany
     {
-        return $this->hasMany(Contact::class, 'main_marketing_id');
+        return $this->hasMany(Contact::class, 'leader_id');
     }
 
     public function contactsHandled(): HasMany
     {
-        return $this->hasMany(Contact::class, 'contacted_by_main_marketing_id');
+        return $this->hasMany(Contact::class, 'contacted_by_leader_id');
     }
 
     public function isSuperAdmin(): bool
@@ -92,21 +79,11 @@ class User extends Authenticatable
 
     public function isLeader(): bool
     {
-        return $this->role === self::ROLE_MAIN_MARKETING;
+        return $this->role === self::ROLE_LEADER;
     }
 
     public function isSubLeader(): bool
     {
-        return $this->role === self::ROLE_ASSISTANT_MARKETING;
-    }
-
-    public function isMainMarketing(): bool
-    {
-        return $this->isLeader();
-    }
-
-    public function isAssistantMarketing(): bool
-    {
-        return $this->isSubLeader();
+        return $this->role === self::ROLE_SUB_LEADER;
     }
 }

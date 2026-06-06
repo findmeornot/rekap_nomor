@@ -15,12 +15,12 @@ class ContactController extends Controller
 {
     public function index(): View
     {
-        $assistantMarketing = auth()->user();
-        $contactsCount = Contact::where('assistant_marketing_id', $assistantMarketing->id)->count();
-        $target = $assistantMarketing->TARGET_ASSISTANT_MARKETING;
+        $subLeader = auth()->user();
+        $contactsCount = Contact::where('sub_leader_id', $subLeader->id)->count();
+        $target = $subLeader->TARGET_SUB_LEADER;
 
         return view('subleader.contacts.index', [
-            'contacts' => Contact::where('assistant_marketing_id', auth()->id())
+            'contacts' => Contact::where('sub_leader_id', auth()->id())
                 ->latest()
                 ->paginate(20),
             'contactsCount' => $contactsCount,
@@ -111,8 +111,8 @@ class ContactController extends Controller
         $summary = $contactImportService->importRows($rows, [
             'team_id' => $subLeader->team_id,
             'input_by' => $subLeader->id,
-            'assistant_marketing_id' => $subLeader->id,
-            'main_marketing_id' => null,
+            'sub_leader_id' => $subLeader->id,
+            'leader_id' => null,
         ]);
 
         return back()->with(
@@ -132,9 +132,9 @@ class ContactController extends Controller
             'normalized_phone' => $normalizedPhone,
             'period_key' => Contact::activePeriodKey(),
             'team_id' => $subLeader->team_id,
-            'assistant_marketing_id' => $subLeader->id,
+            'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
             'status' => Contact::STATUS_UNCONTACTED,
         ];
     }

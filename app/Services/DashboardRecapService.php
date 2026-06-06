@@ -20,11 +20,11 @@ class DashboardRecapService
             return $this->getSuperAdminDashboardData($request);
         }
 
-        if ($user->role === User::ROLE_MAIN_MARKETING) {
-            return $this->getMainMarketingDashboardData($user);
+        if ($user->role === User::ROLE_LEADER) {
+            return $this->getLeaderDashboardData($user);
         }
 
-        return $this->getAssistantMarketingDashboardData($user);
+        return $this->getSubLeaderDashboardData($user);
     }
 
     private function getSuperAdminDashboardData(Request $request): array
@@ -57,7 +57,7 @@ class DashboardRecapService
         ]);
     }
 
-    private function getMainMarketingDashboardData(User $user): array
+    private function getLeaderDashboardData(User $user): array
     {
         $teamContacts = Contact::query()
             ->when(
@@ -75,7 +75,7 @@ class DashboardRecapService
             ->count();
 
         $assistantSubLeaders = User::query()
-            ->where('role', User::ROLE_ASSISTANT_MARKETING)
+            ->where('role', User::ROLE_SUB_LEADER)
             ->when(
                 $user->team_id,
                 fn ($query) => $query->where('team_id', $user->team_id),
@@ -93,7 +93,7 @@ class DashboardRecapService
         })->all();
 
         $mainTargetData = $this->buildMainTargetData($personalHandled);
-        $stats = $this->buildMainMarketingStats($contacts, $contacted, $assistantSubLeaders->count(), $mainTargetData['progress']);
+        $stats = $this->buildLeaderStats($contacts, $contacted, $assistantSubLeaders->count(), $mainTargetData['progress']);
 
         $dateLabels = $this->buildDateLabels(7);
         $mainDailyData = $this->pluckDailyCounts(
@@ -109,13 +109,13 @@ class DashboardRecapService
         );
 
         $assistantDailyData = $this->pluckDailyCounts(
-            (clone $teamContacts)->whereNotNull('assistant_marketing_id'),
+            (clone $teamContacts)->whereNotNull('sub_leader_id'),
             'created_at',
             $dateLabels
         );
 
-        $mainDailyTargetData = $this->buildDailyTargetData(User::TARGET_MAIN_MARKETING, 7);
-        $assistantDailyTargetData = $this->buildDailyTargetData(User::TARGET_ASSISTANT_MARKETING, 7);
+        $mainDailyTargetData = $this->buildDailyTargetData(User::TARGET_LEADER, 7);
+        $assistantDailyTargetData = $this->buildDailyTargetData(User::TARGET_SUB_LEADER, 7);
 
         return array_merge($this->emptyPayload(), [
             'stats' => $stats,
@@ -131,26 +131,26 @@ class DashboardRecapService
         ]);
     }
 
-    private function getAssistantMarketingDashboardData(User $user): array
+    private function getSubLeaderDashboardData(User $user): array
     {
-        $contacts = Contact::where('assistant_marketing_id', $user->id)->count();
+        $contacts = Contact::where('sub_leader_id', $user->id)->count();
 
         $stats = [
             'contacts' => $contacts,
-            'target' => User::TARGET_ASSISTANT_MARKETING,
-            'progress' => User::TARGET_ASSISTANT_MARKETING > 0
-                ? min(100, (int) round(($contacts / User::TARGET_ASSISTANT_MARKETING) * 100))
+            'target' => User::TARGET_SUB_LEADER,
+            'progress' => User::TARGET_SUB_LEADER > 0
+                ? min(100, (int) round(($contacts / User::TARGET_SUB_LEADER) * 100))
                 : 0,
         ];
 
         $dateLabels = $this->buildDateLabels(7);
         $subLeaderDailyData = $this->pluckDailyCounts(
-            Contact::where('assistant_marketing_id', $user->id),
+            Contact::where('sub_leader_id', $user->id),
             'created_at',
             $dateLabels
         );
 
-        $subLeaderDailyTargetData = $this->buildDailyTargetData(User::TARGET_ASSISTANT_MARKETING, 7);
+        $subLeaderDailyTargetData = $this->buildDailyTargetData(User::TARGET_SUB_LEADER, 7);
 
         return array_merge($this->emptyPayload(), [
             'stats' => array_merge($stats, [
@@ -163,8 +163,8 @@ class DashboardRecapService
 
     private function buildSuperAdminStats(): array
     {
-        $leadersCount = User::where('role', User::ROLE_MAIN_MARKETING)->count();
-        $subLeadersCount = User::where('role', User::ROLE_ASSISTANT_MARKETING)->count();
+        $leadersCount = User::where('role', User::ROLE_LEADER)->count();
+        $subLeadersCount = User::where('role', User::ROLE_SUB_LEADER)->count();
         $contactsCount = Contact::count();
 
         return [
@@ -179,19 +179,19 @@ class DashboardRecapService
 
     private function buildSuperAdminMeta(): array
     {
-        $topLeader = User::where('role', User::ROLE_MAIN_MARKETING)
+        $topLeader = User::where('role', User::ROLE_LEADER)
             ->withCount('contactsHandled')
             ->orderByDesc('contacts_handled_count')
             ->first();
 
-        $topSubLeader = User::where('role', User::ROLE_ASSISTANT_MARKETING)
+        $topSubLeader = User::where('role', User::ROLE_SUB_LEADER)
             ->withCount('contactsEntered')
             ->orderByDesc('contacts_entered_count')
             ->first();
 
         return [
-            'sub_leaders_without_leader' => User::where('role', User::ROLE_ASSISTANT_MARKETING)
-                ->whereNull('main_marketing_id')
+            'sub_leaders_without_leader' => User::where('role', User::ROLE_SUB_LEADER)
+                ->whereNull('leader_id')
                 ->count(),
             'top_leader' => $topLeader,
             'top_sub_leader' => $topSubLeader,
@@ -200,10 +200,10 @@ class DashboardRecapService
 
     private function getLeaderComparisonDataForDay(string $date): Collection
     {
-        return User::where('role', User::ROLE_MAIN_MARKETING)
+        return User::where('role', User::ROLE_LEADER)
             ->leftJoin('contacts', function ($join) {
-                $join->on('users.id', '=', 'contacts.main_marketing_id')
-                    ->orOn('users.id', '=', 'contacts.contacted_by_main_marketing_id');
+                $join->on('users.id', '=', 'contacts.leader_id')
+                    ->orOn('users.id', '=', 'contacts.contacted_by_leader_id');
             })
             ->select('users.id', 'users.name')
             ->selectRaw(
@@ -222,10 +222,10 @@ class DashboardRecapService
 
     private function getLeaderComparisonData(int $year, int $month): Collection
     {
-        return User::where('role', User::ROLE_MAIN_MARKETING)
+        return User::where('role', User::ROLE_LEADER)
             ->leftJoin('contacts', function ($join) {
-                $join->on('users.id', '=', 'contacts.main_marketing_id')
-                    ->orOn('users.id', '=', 'contacts.contacted_by_main_marketing_id');
+                $join->on('users.id', '=', 'contacts.leader_id')
+                    ->orOn('users.id', '=', 'contacts.contacted_by_leader_id');
             })
             ->select('users.id', 'users.name')
             ->selectRaw(
@@ -257,9 +257,9 @@ class DashboardRecapService
 
     private function getSubLeaderComparisonData(int $year, int $month): Collection
     {
-        return User::where('users.role', User::ROLE_ASSISTANT_MARKETING)
-            ->leftJoin('users as leaders', 'users.main_marketing_id', '=', 'leaders.id')
-            ->leftJoin('contacts', 'users.id', '=', 'contacts.assistant_marketing_id')
+        return User::where('users.role', User::ROLE_SUB_LEADER)
+            ->leftJoin('users as leaders', 'users.leader_id', '=', 'leaders.id')
+            ->leftJoin('contacts', 'users.id', '=', 'contacts.sub_leader_id')
             ->select('users.id', 'users.name', 'leaders.name as leader_name')
             ->selectRaw(
                 'COUNT(DISTINCT CASE WHEN (YEAR(contacts.created_at) = ? AND MONTH(contacts.created_at) = ?) OR (YEAR(contacts.status_updated_at) = ? AND MONTH(contacts.status_updated_at) = ?) OR (YEAR(contacts.contacted_at) = ? AND MONTH(contacts.contacted_at) = ?) THEN contacts.id END) as total_count',
@@ -288,9 +288,9 @@ class DashboardRecapService
 
     private function getSubLeaderComparisonDataForDay(string $date): Collection
     {
-        return User::where('users.role', User::ROLE_ASSISTANT_MARKETING)
-            ->leftJoin('users as leaders', 'users.main_marketing_id', '=', 'leaders.id')
-            ->leftJoin('contacts', 'users.id', '=', 'contacts.assistant_marketing_id')
+        return User::where('users.role', User::ROLE_SUB_LEADER)
+            ->leftJoin('users as leaders', 'users.leader_id', '=', 'leaders.id')
+            ->leftJoin('contacts', 'users.id', '=', 'contacts.sub_leader_id')
             ->select('users.id', 'users.name', 'leaders.name as leader_name')
             ->selectRaw(
                 'COUNT(DISTINCT CASE WHEN DATE(contacts.created_at) = ? OR DATE(contacts.status_updated_at) = ? OR DATE(contacts.contacted_at) = ? THEN contacts.id END) as total_count',
@@ -327,8 +327,8 @@ class DashboardRecapService
             ->leftJoin('users', 'teams.id', '=', 'users.team_id')
             ->leftJoin('contacts', function ($join) use ($year, $month) {
                 $join->on(function ($query) {
-                    $query->on('contacts.main_marketing_id', '=', 'users.id')
-                        ->orOn('contacts.assistant_marketing_id', '=', 'users.id');
+                    $query->on('contacts.leader_id', '=', 'users.id')
+                        ->orOn('contacts.sub_leader_id', '=', 'users.id');
                 });
             })
             ->select('teams.id', 'teams.name')
@@ -373,7 +373,7 @@ class DashboardRecapService
             ->get();
 
         $inputRows = Contact::query()
-            ->whereNotNull('assistant_marketing_id')
+            ->whereNotNull('sub_leader_id')
             ->whereBetween('created_at', [$startMonth, $endMonth])
             ->selectRaw('YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as total_count')
             ->groupBy('year', 'month')
@@ -408,22 +408,22 @@ class DashboardRecapService
     private function buildMainTargetData(int $contacted): array
     {
         return [
-            'target' => User::TARGET_MAIN_MARKETING,
+            'target' => User::TARGET_LEADER,
             'contacted' => $contacted,
-            'remaining' => max(User::TARGET_MAIN_MARKETING - $contacted, 0),
-            'progress' => User::TARGET_MAIN_MARKETING > 0
-                ? min(100, (int) round(($contacted / User::TARGET_MAIN_MARKETING) * 100))
+            'remaining' => max(User::TARGET_LEADER - $contacted, 0),
+            'progress' => User::TARGET_LEADER > 0
+                ? min(100, (int) round(($contacted / User::TARGET_LEADER) * 100))
                 : 0,
         ];
     }
 
-    private function buildMainMarketingStats(int $contacts, int $contacted, int $subLeadersCount, int $progress): array
+    private function buildLeaderStats(int $contacts, int $contacted, int $subLeadersCount, int $progress): array
     {
         return [
             'contacts' => $contacts,
             'contacted' => $contacted,
             'sub_leaders' => $subLeadersCount,
-            'target' => User::TARGET_MAIN_MARKETING,
+            'target' => User::TARGET_LEADER,
             'progress' => $progress,
         ];
     }

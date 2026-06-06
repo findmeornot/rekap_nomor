@@ -4,7 +4,7 @@
             <h2 class="text-2xl font-semibold leading-tight text-slate-900">
                 Rekap Data Per Marketing Utama
             </h2>
-            <p class="mt-1 text-sm text-slate-600">Super admin dapat melihat semua data nomor berdasarkan leader.</p>
+            <p class="mt-1 text-sm text-slate-600">Super admin dapat melihat semua data nomor berdasarkan Marketing Utama.</p>
         </div>
     </x-slot>
 
@@ -13,7 +13,7 @@
             <div class="panel fade-in-up">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                        <h3 class="section-title">Filter Leader</h3>
+                        <h3 class="section-title">Filter Marketing Utama</h3>
                         <p class="section-subtitle">Cari data lebih cepat dengan filter leader, status, kata kunci, dan rentang tanggal.</p>
                     </div>
                 </div>
@@ -26,7 +26,7 @@
                         leaderId: '{{ $selectedLeaderId ?? '' }}',
                         status: '{{ $uiFilters['status'] ?? 'all' }}',
                         perPage: '{{ (string) ($uiFilters['per_page'] ?? 20) }}',
-                        leaderOptions: [{ id: '', name: 'Semua Leader' }, ...@js($leaders->map(fn ($leader) => ['id' => (string) $leader->id, 'name' => $leader->name])->values())],
+                        leaderOptions: [{ id: '', name: 'Semua Marketing Utama' }, ...@js($leaders->map(fn ($leader) => ['id' => (string) $leader->id, 'name' => $leader->name])->values())],
                         statusOptions: [
                             { id: 'all', name: 'Semua Status' },
                             { id: 'contacted', name: 'Sudah Dihubungi' },
@@ -54,7 +54,7 @@
                             type="search"
                             name="q"
                             value="{{ $uiFilters['q'] ?? '' }}"
-                            placeholder="Cari leader, sub leader, nama, nomor..."
+                            placeholder="Cari Marketing Utama, Asisten Marketing, nama, nomor..."
                             autocomplete="off"
                             aria-label="Cari data kontak"
                             class="xl:col-span-3"
@@ -66,9 +66,9 @@
                                 @click="open = !open"
                                 @keydown.escape.window="open = false"
                                 @click.outside="open = false"
-                                aria-label="Pilih leader"
+                                aria-label="Pilih Marketing Utama"
                             >
-                                <span x-text="optionLabel(leaderOptions, leaderId, 'Semua Leader')"></span>
+                                <span x-text="optionLabel(leaderOptions, leaderId, 'Semua Marketing Utama')"></span>
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-500" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
                                 </svg>
@@ -203,13 +203,13 @@
             </div>
 
             <div class="panel fade-in-up">
-                <h3 class="section-title">Ringkasan Per Leader</h3>
+                <h3 class="section-title">Ringkasan Per Marketing Utama</h3>
                 <div class="table-wrap mt-4">
                     <table class="table-clean w-full text-sm">
                         <thead>
                             <tr class="text-slate-600 text-xs uppercase tracking-wide">
                                 <th class="text-left py-2">No</th>
-                                <th class="text-left py-2">Leader</th>
+                                <th class="text-left py-2">Marketing Utama</th>
                                 <th class="text-right py-2">Sudah Dihubungi (Hari Ini)</th>
                                 <th class="text-right py-2">Dihubungi Bulan Ini</th>
                                 <th class="text-left py-2">Input Terakhir</th>
@@ -239,15 +239,15 @@
             </div>
 
             <div class="panel fade-in-up">
-                <h3 class="section-title">Semua Nomor Per Leader</h3>
+                <h3 class="section-title">Semua Nomor Per Marketing Utama</h3>
                 <p class="section-subtitle">Menampilkan seluruh data nomor yang sudah diinput.</p>
 
                 <div class="table-wrap mt-4">
                     <table class="table-clean">
                         <thead>
                             <tr>
-                                <th>Leader</th>
-                                <th>Sub Leader</th>
+                                <th>Marketing Utama</th>
+                                <th>Asisten Marketing</th>
                                 <th>Nama Kontak</th>
                                 <th>Nomor</th>
                                 <th>Status</th>

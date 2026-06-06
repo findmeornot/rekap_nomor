@@ -26,9 +26,9 @@ class ContactImportTest extends TestCase
             'normalized_phone' => '628111111001',
             'period_key' => Contact::activePeriodKey(),
             'team_id' => $team->id,
-            'assistant_marketing_id' => null,
+            'sub_leader_id' => null,
             'input_by' => $superAdmin->id,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $csv = implode("\n", [

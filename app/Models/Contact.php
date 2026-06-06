@@ -12,15 +12,15 @@ use Illuminate\Database\Eloquent\Model;
     'normalized_phone',
     'period_key',
     'team_id',
-    'assistant_marketing_id',
+    'sub_leader_id',
     'input_by',
-    'main_marketing_id',
+    'leader_id',
     'status',
     'is_contacted',
     'status_updated_by',
     'status_updated_at',
     'contacted_at',
-    'contacted_by_main_marketing_id',
+    'contacted_by_leader_id',
 ])]
 class Contact extends Model
 {
@@ -80,7 +80,7 @@ class Contact extends Model
             'status_updated_by' => $user->id,
             'status_updated_at' => now(),
             'contacted_at' => $isContacted ? now() : null,
-            'contacted_by_main_marketing_id' => $isContacted ? $user->id : null,
+            'contacted_by_leader_id' => $isContacted ? $user->id : null,
         ]);
     }
 
@@ -114,25 +114,17 @@ class Contact extends Model
         return $this->belongsTo(User::class, 'input_by');
     }
 
-    public function assistantMarketing(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'assistant_marketing_id');
-    }
-
     public function subLeader(): BelongsTo
     {
-        return $this->assistantMarketing();
+        return $this->belongsTo(User::class, 'sub_leader_id');
     }
 
-    public function mainMarketing(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'main_marketing_id');
-    }
 
     public function leader(): BelongsTo
     {
-        return $this->mainMarketing();
+        return $this->belongsTo(User::class, 'leader_id');
     }
+
 
     public function team(): BelongsTo
     {

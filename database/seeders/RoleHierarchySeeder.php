@@ -19,7 +19,7 @@ class RoleHierarchySeeder extends Seeder
             'name' => 'Super Admin',
             'password' => 'password123',
             'role' => User::ROLE_SUPERADMIN,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $leaderA = User::updateOrCreate([
@@ -28,7 +28,7 @@ class RoleHierarchySeeder extends Seeder
             'name' => 'Leader Satu',
             'password' => 'password123',
             'role' => User::ROLE_LEADER,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $leaderB = User::updateOrCreate([
@@ -37,7 +37,7 @@ class RoleHierarchySeeder extends Seeder
             'name' => 'Leader Dua',
             'password' => 'password123',
             'role' => User::ROLE_LEADER,
-            'main_marketing_id' => null,
+            'leader_id' => null,
         ]);
 
         $subLeaderA = User::updateOrCreate([
@@ -46,7 +46,7 @@ class RoleHierarchySeeder extends Seeder
             'name' => 'Sub Leader Satu',
             'password' => 'password123',
             'role' => User::ROLE_SUB_LEADER,
-            'main_marketing_id' => $leaderA->id,
+            'leader_id' => $leaderA->id,
         ]);
 
         $subLeaderB = User::updateOrCreate([
@@ -55,33 +55,33 @@ class RoleHierarchySeeder extends Seeder
             'name' => 'Sub Leader Dua',
             'password' => 'password123',
             'role' => User::ROLE_SUB_LEADER,
-            'main_marketing_id' => $leaderB->id,
+            'leader_id' => $leaderB->id,
         ]);
 
         $contacts = [
             [
                 'contact_name' => 'Andi Pratama',
                 'phone' => '628111111001',
-                'assistant_marketing_id' => $subLeaderA->id,
-                'main_marketing_id' => $leaderA->id,
+                'sub_leader_id' => $subLeaderA->id,
+                'leader_id' => $leaderA->id,
             ],
             [
                 'contact_name' => 'Sari Dewi',
                 'phone' => '628111111002',
-                'assistant_marketing_id' => $subLeaderA->id,
-                'main_marketing_id' => $leaderA->id,
+                'sub_leader_id' => $subLeaderA->id,
+                'leader_id' => $leaderA->id,
             ],
             [
                 'contact_name' => 'Rian Nugroho',
                 'phone' => '628111111003',
-                'assistant_marketing_id' => $subLeaderB->id,
-                'main_marketing_id' => $leaderB->id,
+                'sub_leader_id' => $subLeaderB->id,
+                'leader_id' => $leaderB->id,
             ],
             [
                 'contact_name' => 'Mega Putri',
                 'phone' => '628111111004',
-                'assistant_marketing_id' => $subLeaderB->id,
-                'main_marketing_id' => $leaderB->id,
+                'sub_leader_id' => $subLeaderB->id,
+                'leader_id' => $leaderB->id,
             ],
         ];
 
@@ -92,7 +92,7 @@ class RoleHierarchySeeder extends Seeder
         }
 
         // Ensure role consistency in case seeders are rerun.
-        User::where('id', $superAdmin->id)->update(['role' => User::ROLE_SUPERADMIN, 'main_marketing_id' => null]);
-        User::whereIn('id', [$leaderA->id, $leaderB->id])->update(['role' => User::ROLE_LEADER, 'main_marketing_id' => null]);
+        User::where('id', $superAdmin->id)->update(['role' => User::ROLE_SUPERADMIN, 'leader_id' => null]);
+        User::whereIn('id', [$leaderA->id, $leaderB->id])->update(['role' => User::ROLE_LEADER, 'leader_id' => null]);
     }
 }
