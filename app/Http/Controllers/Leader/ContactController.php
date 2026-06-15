@@ -89,16 +89,17 @@ class ContactController extends Controller
             ])
             ->values();
 
-        $personalHandledCount = $user->team_id
+        $todayContactedCount = $user->team_id
             ? Contact::query()
                 ->where('team_id', $user->team_id)
                 ->where('is_contacted', true)
-                ->where('status_updated_by', $user->id)
+                ->where('contacted_by_leader_id', $user->id)
+                ->whereDate('status_updated_at', now()->toDateString())
                 ->count()
             : 0;
 
         $target = User::TARGET_LEADER;
-        $progress = $target > 0 ? (int) round(($personalHandledCount / $target) * 100) : 0;
+        $progress = $target > 0 ? min(100, (int) round(($todayContactedCount / $target) * 100)) : 0;
 
         return view('leader.contacts.index', [
             'subLeaders' => $subLeaders,
@@ -112,7 +113,7 @@ class ContactController extends Controller
             'monthlyContactedData' => $monthlyContactedData,
             'target' => $target,
             'progress' => $progress,
-            'personalHandledCount' => $personalHandledCount,
+            'todayContactedCount' => $todayContactedCount,
         ]);
     }
 

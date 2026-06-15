@@ -102,7 +102,7 @@
                 <h3 class="section-title">Ringkasan Marketing Utama</h3>
                 <div class="stats-grid mt-4">
                     <div class="stat-card">
-                        <p class="text-sm font-medium text-slate-500">Total Kontak Marketing Utama</p>
+                        <p class="text-sm font-medium text-slate-500">Total Kontak Tim</p>
                         <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($totalContactsCount) }}</p>
                     </div>
                     <div class="stat-card">
@@ -113,13 +113,96 @@
                         <p class="text-sm font-medium text-slate-500">Dihubungi Bulan Ini</p>
                         <p id="contacted-this-month-count" class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($contactedThisMonthCount) }}</p>
                     </div>
-                    <div class="stat-card">
-                        <p class="text-sm font-medium text-slate-500">Target Marketing Utama</p>
-                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($target) }}</p>
-                        <p class="mt-1 text-xs text-slate-500">Progress: <span id="target-progress">{{ $progress }}</span>%</p>
+                </div>
+
+                <div class="mt-6 border-t border-slate-100 pt-5">
+                    <h4 class="text-sm font-semibold text-slate-700">Target Hari Ini</h4>
+                    <p class="mt-0.5 text-xs text-slate-500">Nomor yang <strong>kamu</strong> hubungi hari ini vs target harian {{ number_format($target) }} nomor.</p>
+                    <div class="mt-4 flex flex-wrap items-center gap-8">
+                        <div class="water-circle">
+                            <div class="water-fill" id="waterFill" style="height: {{ $progress }}%">
+                                <svg class="water-wave-svg" viewBox="0 0 600 20" preserveAspectRatio="none" aria-hidden="true">
+                                    <path d="M0,10 C75,0 150,20 225,10 C300,0 375,20 450,10 C525,0 600,20 675,10 L675,20 L0,20 Z" fill="rgba(96,165,250,0.9)"/>
+                                </svg>
+                            </div>
+                            <div class="water-text">
+                                <p class="water-pct" id="waterProgressPct">{{ $progress }}%</p>
+                                <p class="water-sublabel">hari ini</p>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div>
+                                <p class="text-3xl font-bold text-slate-900" id="todayContactedDisplay">{{ number_format($todayContactedCount) }}</p>
+                                <p class="text-sm text-slate-500 mt-0.5">nomor kamu hubungi hari ini</p>
+                            </div>
+                            <p class="text-sm text-slate-600">Target harian: <strong>{{ number_format($target) }}</strong> nomor</p>
+                            <p class="text-sm text-slate-600">Sisa: <strong id="waterRemaining">{{ number_format(max($target - $todayContactedCount, 0)) }}</strong> nomor lagi</p>
+                            @if ($progress >= 100)
+                                <p class="text-sm font-semibold text-emerald-600">Target hari ini sudah tercapai!</p>
+                            @endif
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <style>
+            .water-circle {
+                position: relative;
+                width: 160px;
+                height: 160px;
+                border-radius: 50%;
+                border: 3px solid #3b82f6;
+                overflow: hidden;
+                background: #eff6ff;
+                flex-shrink: 0;
+            }
+            .water-fill {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: linear-gradient(0deg, #1d4ed8 0%, #3b82f6 60%, #60a5fa 100%);
+                transition: height 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+                min-height: 0;
+            }
+            .water-wave-svg {
+                position: absolute;
+                top: -10px;
+                left: 0;
+                width: 200%;
+                height: 20px;
+                animation: waveScroll 2.5s linear infinite;
+            }
+            .water-text {
+                position: absolute;
+                inset: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                z-index: 10;
+                pointer-events: none;
+            }
+            .water-pct {
+                font-size: 1.5rem;
+                font-weight: 700;
+                line-height: 1;
+                color: #1e40af;
+                text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+                transition: color 0.5s ease, text-shadow 0.5s ease;
+            }
+            .water-sublabel {
+                font-size: 0.7rem;
+                color: #3b82f6;
+                margin-top: 2px;
+                text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+                transition: color 0.5s ease;
+            }
+            @keyframes waveScroll {
+                0% { transform: translateX(0); }
+                100% { transform: translateX(-50%); }
+            }
+            </style>
 
             <div class="panel fade-in-up">
                 <h3 class="section-title">Daftar Nomor</h3>
@@ -259,7 +342,11 @@
         const totalFoundEl = document.getElementById('total-found-count');
         const totalContactedEl = document.getElementById('total-contacted-count');
         const contactedThisMonthEl = document.getElementById('contacted-this-month-count');
-        const targetProgressEl = document.getElementById('target-progress');
+        const waterFillEl = document.getElementById('waterFill');
+        const waterProgressPctEl = document.getElementById('waterProgressPct');
+        const waterRemainingEl = document.getElementById('waterRemaining');
+        const todayContactedDisplayEl = document.getElementById('todayContactedDisplay');
+        const waterTarget = {{ $target }};
         const currentMonth = new Date().toISOString().slice(0, 7);
         const currentStatusFilter = new URLSearchParams(window.location.search).get('status') || 'all';
 
@@ -273,7 +360,7 @@
 
         let totalContactedCount = parseInteger(totalContactedEl);
         let contactedThisMonthCount = parseInteger(contactedThisMonthEl);
-        let progressValue = parseInteger(targetProgressEl);
+        let todayCount = {{ $todayContactedCount }};
 
         const formatNumber = (value) => new Intl.NumberFormat('id-ID').format(value);
 
@@ -293,10 +380,31 @@
             }, 3000);
         };
 
-        const updateSummaryCounts = (deltaTotal, deltaMonth, deltaProgress) => {
+        const updateWaterFill = (delta) => {
+            todayCount = Math.max(todayCount + delta, 0);
+            const pct = waterTarget > 0 ? Math.min(100, Math.round((todayCount / waterTarget) * 100)) : 0;
+
+            if (todayContactedDisplayEl) todayContactedDisplayEl.textContent = formatNumber(todayCount);
+            if (waterFillEl) waterFillEl.style.height = pct + '%';
+            if (waterRemainingEl) waterRemainingEl.textContent = formatNumber(Math.max(waterTarget - todayCount, 0));
+            if (waterProgressPctEl) {
+                waterProgressPctEl.textContent = pct + '%';
+                const sublabel = waterProgressPctEl.nextElementSibling;
+                if (pct >= 50) {
+                    waterProgressPctEl.style.color = 'white';
+                    waterProgressPctEl.style.textShadow = '0 1px 3px rgba(0,0,0,0.4)';
+                    if (sublabel) { sublabel.style.color = 'rgba(255,255,255,0.9)'; sublabel.style.textShadow = '0 1px 2px rgba(0,0,0,0.3)'; }
+                } else {
+                    waterProgressPctEl.style.color = '#1e40af';
+                    waterProgressPctEl.style.textShadow = '0 1px 2px rgba(255,255,255,0.8)';
+                    if (sublabel) { sublabel.style.color = '#3b82f6'; sublabel.style.textShadow = '0 1px 2px rgba(255,255,255,0.8)'; }
+                }
+            }
+        };
+
+        const updateSummaryCounts = (deltaTotal, deltaMonth, deltaToday) => {
             totalContactedCount += deltaTotal;
             contactedThisMonthCount += deltaMonth;
-            progressValue += deltaProgress;
 
             if (totalContactedEl) {
                 totalContactedEl.textContent = formatNumber(Math.max(totalContactedCount, 0));
@@ -306,8 +414,8 @@
                 contactedThisMonthEl.textContent = formatNumber(Math.max(contactedThisMonthCount, 0));
             }
 
-            if (targetProgressEl) {
-                targetProgressEl.textContent = String(Math.max(progressValue, 0));
+            if (deltaToday !== 0) {
+                updateWaterFill(deltaToday);
             }
         };
 
@@ -352,6 +460,10 @@
                 minute: '2-digit',
             }).format(date);
         };
+
+        // Sync initial water text color based on server-rendered fill level
+        updateWaterFill(0);
+
         // Bulk copy + bulk update handler
         const bulkBtn = document.getElementById('bulk-copy-btn');
         let bulkLock = false;
