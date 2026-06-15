@@ -85,6 +85,14 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="panel fade-in-up">
+                    <h3 class="section-title">Progres Target Per Asisten Marketing</h3>
+                    <p class="section-subtitle">Total nomor yang sudah diinput masing-masing asisten marketing dibandingkan target {{ \App\Models\User::TARGET_SUB_LEADER }} nomor.</p>
+                    <div class="mt-4" id="assistantProgressContainer">
+                        <canvas id="assistantProgressChart" width="800" height="320"></canvas>
+                    </div>
+                </div>
             @else
                 <div class="stats-grid stagger lg:grid-cols-4">
                     <div class="stat-card fade-in-up">
@@ -511,7 +519,9 @@
                 'assistantDailyTargetData' => $assistantDailyTargetData ?? [],
                 'subLeaderDailyData' => $subLeaderDailyData ?? [],
                 'subLeaderDailyTargetData' => $subLeaderDailyTargetData ?? [],
-                'dailyLabels' => $stats['daily_labels'] ?? []
+                'dailyLabels' => $stats['daily_labels'] ?? [],
+                'assistantChartData' => $assistantChartData ?? [],
+                'assistantTarget' => \App\Models\User::TARGET_SUB_LEADER,
             ]) !!}
         </script>
         <script>
@@ -624,6 +634,78 @@
                             borderWidth: 1,
                         },
                     ]);
+                }
+
+                const assistantChartData = dataStore.assistantChartData;
+                const assistantTarget = dataStore.assistantTarget;
+                const assistantProgressCanvas = document.getElementById('assistantProgressChart');
+                const assistantProgressContainer = document.getElementById('assistantProgressContainer');
+
+                if (assistantProgressCanvas && assistantProgressContainer) {
+                    if (!assistantChartData.length) {
+                        assistantProgressContainer.innerHTML = '<p class="text-slate-500 text-sm">Belum ada asisten marketing di tim ini.</p>';
+                    } else {
+                        new Chart(assistantProgressCanvas, {
+                            type: 'bar',
+                            data: {
+                                labels: assistantChartData.map(d => d.label),
+                                datasets: [
+                                    {
+                                        label: 'Total Input Nomor',
+                                        data: assistantChartData.map(d => d.count),
+                                        backgroundColor: assistantChartData.map(d =>
+                                            d.count >= assistantTarget
+                                                ? 'rgba(34, 197, 94, 0.75)'
+                                                : 'rgba(59, 130, 246, 0.65)'
+                                        ),
+                                        borderColor: assistantChartData.map(d =>
+                                            d.count >= assistantTarget
+                                                ? 'rgba(22, 163, 74, 1)'
+                                                : 'rgba(37, 99, 235, 1)'
+                                        ),
+                                        borderWidth: 1,
+                                    },
+                                    {
+                                        label: 'Target (' + assistantTarget + ')',
+                                        data: assistantChartData.map(() => assistantTarget),
+                                        type: 'line',
+                                        borderColor: 'rgba(239, 68, 68, 0.8)',
+                                        borderWidth: 2,
+                                        borderDash: [6, 3],
+                                        pointRadius: 0,
+                                        fill: false,
+                                        tension: 0,
+                                    },
+                                ],
+                            },
+                            options: {
+                                responsive: true,
+                                plugins: {
+                                    legend: { display: true },
+                                    tooltip: {
+                                        callbacks: {
+                                            label: function (context) {
+                                                if (context.datasetIndex === 0) {
+                                                    const val = context.parsed.y;
+                                                    const pct = assistantTarget > 0
+                                                        ? Math.round((val / assistantTarget) * 100)
+                                                        : 0;
+                                                    return 'Input: ' + val.toLocaleString('id-ID') + ' (' + pct + '% target)';
+                                                }
+                                                return 'Target: ' + context.parsed.y.toLocaleString('id-ID');
+                                            },
+                                        },
+                                    },
+                                },
+                                scales: {
+                                    y: {
+                                        beginAtZero: true,
+                                        ticks: { stepSize: 25 },
+                                    },
+                                },
+                            },
+                        });
+                    }
                 }
             });
         </script>

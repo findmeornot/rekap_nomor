@@ -142,113 +142,50 @@ class UserManagementController extends Controller
             ->orderBy('id')
             ->get();
 
+        // "Sudah Dihubungi" counts use contacted_by_leader_id — tracks which specific
+        // leader marked the contact, so multiple leaders on same team stay separate.
+        $todayContactedRows = Contact::query()
+            ->whereNotNull('contacted_by_leader_id')
+            ->where('is_contacted', true)
+            ->whereDate('status_updated_at', now()->toDateString())
+            ->selectRaw('contacted_by_leader_id as leader_id, COUNT(*) as today_contacted_count')
+            ->groupBy('contacted_by_leader_id')
+            ->get()
+            ->keyBy('leader_id');
+
+        $monthlyContactedRows = Contact::query()
+            ->whereNotNull('contacted_by_leader_id')
+            ->where('is_contacted', true)
+            ->whereYear('status_updated_at', now()->year)
+            ->whereMonth('status_updated_at', now()->month)
+            ->selectRaw('contacted_by_leader_id as leader_id, COUNT(*) as monthly_contacted_count')
+            ->groupBy('contacted_by_leader_id')
+            ->get()
+            ->keyBy('leader_id');
+
+        // "Input Terakhir" uses team_id join — sub-leaders input for the team,
+        // apply any active date/list filters on the base query.
         $summaryQuery = Contact::query();
         \App\Services\ContactFilter::applyDateFilter($summaryQuery, $filters);
         \App\Services\ContactFilter::applyListFilters($summaryQuery, $uiFilters);
 
-        $summaryRows = (clone $summaryQuery)
-            ->selectRaw("leader_id, COUNT(*) as total_contacts, SUM(CASE WHEN is_contacted = 1 THEN 1 ELSE 0 END) as contacted_contacts, MAX(created_at) as latest_input_at")
-            ->groupBy('leader_id')
-            ->get()
-            ->keyBy('leader_id');
-
-        $subLeaderSummaryRows = (clone $summaryQuery)
-            ->join('users as sub_leaders', 'contacts.sub_leader_id', '=', 'sub_leaders.id')
-            ->whereNotNull('sub_leaders.leader_id')
-            ->selectRaw('sub_leaders.leader_id as leader_id, COUNT(*) as total_contacts, SUM(CASE WHEN contacts.is_contacted = 1 THEN 1 ELSE 0 END) as contacted_contacts, MAX(contacts.created_at) as latest_input_at')
-            ->groupBy('sub_leaders.leader_id')
-            ->get()
-            ->keyBy('leader_id');
-
-        $monthlyContactedRows = (clone $summaryQuery)
-            ->where('is_contacted', true)
-            ->where(function ($query) {
-                $query->where(function ($query) {
-                    $query->whereYear('status_updated_at', now()->year)
-                        ->whereMonth('status_updated_at', now()->month);
-                })->orWhere(function ($query) {
-                    $query->whereNull('status_updated_at')
-                        ->whereYear('contacted_at', now()->year)
-                        ->whereMonth('contacted_at', now()->month);
-                });
+        $latestInputRows = (clone $summaryQuery)
+            ->join('users as team_leaders', function ($join) {
+                $join->on('contacts.team_id', '=', 'team_leaders.team_id')
+                    ->where('team_leaders.role', User::ROLE_LEADER);
             })
-            ->selectRaw('leader_id, COUNT(*) as monthly_contacted_count')
-            ->groupBy('leader_id')
-            ->get()
-            ->keyBy('leader_id');
-
-        // contacted today (per day) - direct
-        $todayContactedRows = (clone $summaryQuery)
-            ->where('is_contacted', true)
-            ->where(function ($query) {
-                $query->where(function ($query) {
-                    $query->whereDate('status_updated_at', now()->toDateString());
-                })->orWhere(function ($query) {
-                    $query->whereNull('status_updated_at')
-                        ->whereDate('contacted_at', now()->toDateString());
-                });
-            })
-            ->selectRaw('leader_id, COUNT(*) as today_contacted_count')
-            ->groupBy('leader_id')
-            ->get()
-            ->keyBy('leader_id');
-
-        // contacted today by sub-leaders
-        $todaySubLeaderContactedRows = (clone $summaryQuery)
-            ->where('is_contacted', true)
-            ->where(function ($query) {
-                $query->where(function ($query) {
-                    $query->whereDate('status_updated_at', now()->toDateString());
-                })->orWhere(function ($query) {
-                    $query->whereNull('status_updated_at')
-                        ->whereDate('contacted_at', now()->toDateString());
-                });
-            })
-            ->join('users as sub_leaders', 'contacts.sub_leader_id', '=', 'sub_leaders.id')
-            ->whereNotNull('sub_leaders.leader_id')
-            ->selectRaw('sub_leaders.leader_id as leader_id, COUNT(*) as today_contacted_count')
-            ->groupBy('sub_leaders.leader_id')
-            ->get()
-            ->keyBy('leader_id');
-
-        $monthlySubLeaderContactedRows = (clone $summaryQuery)
-            ->where('is_contacted', true)
-            ->where(function ($query) {
-                $query->where(function ($query) {
-                    $query->whereYear('status_updated_at', now()->year)
-                        ->whereMonth('status_updated_at', now()->month);
-                })->orWhere(function ($query) {
-                    $query->whereNull('status_updated_at')
-                        ->whereYear('contacted_at', now()->year)
-                        ->whereMonth('contacted_at', now()->month);
-                });
-            })
-            ->join('users as sub_leaders', 'contacts.sub_leader_id', '=', 'sub_leaders.id')
-            ->whereNotNull('sub_leaders.leader_id')
-            ->selectRaw('sub_leaders.leader_id as leader_id, COUNT(*) as monthly_contacted_count')
-            ->groupBy('sub_leaders.leader_id')
+            ->selectRaw('team_leaders.id as leader_id, MAX(contacts.created_at) as latest_input_at')
+            ->groupBy('team_leaders.id')
             ->get()
             ->keyBy('leader_id');
 
         foreach ($leaders as $leader) {
-            $row = $summaryRows->get($leader->id);
-            $subRow = $subLeaderSummaryRows->get($leader->id);
+            $todayRow = $todayContactedRows->get($leader->id);
+            $leader->setAttribute('contacted_contacts_count', (int) ($todayRow->today_contacted_count ?? 0));
             $monthlyRow = $monthlyContactedRows->get($leader->id);
-            $monthlySubRow = $monthlySubLeaderContactedRows->get($leader->id);
-
-            $leader->setAttribute('contacts_as_leader_count', (int) (($row->total_contacts ?? 0) + ($subRow->total_contacts ?? 0)));
-            // contacted today (per day)
-            $todayDirect = $todayContactedRows->get($leader->id);
-            $todaySub = $todaySubLeaderContactedRows->get($leader->id);
-            $leader->setAttribute('contacted_contacts_count', (int) (($todayDirect->today_contacted_count ?? 0) + ($todaySub->today_contacted_count ?? 0)));
-            // contacted month (rekapan selama bulan berjalan)
-            $leader->setAttribute('contacted_contacts_monthly_count', (int) (($monthlyRow->monthly_contacted_count ?? 0) + ($monthlySubRow->monthly_contacted_count ?? 0)));
-
-            $latestInputAt = $row->latest_input_at ?? null;
-            if ($subRow && $subRow->latest_input_at && (! $latestInputAt || $subRow->latest_input_at > $latestInputAt)) {
-                $latestInputAt = $subRow->latest_input_at;
-            }
-            $leader->setAttribute('contacts_as_leader_max_created_at', $latestInputAt);
+            $leader->setAttribute('contacted_contacts_monthly_count', (int) ($monthlyRow->monthly_contacted_count ?? 0));
+            $latestRow = $latestInputRows->get($leader->id);
+            $leader->setAttribute('contacts_as_leader_max_created_at', $latestRow->latest_input_at ?? null);
         }
 
         $leaderNumberMap = $leaders
@@ -267,10 +204,12 @@ class UserManagementController extends Controller
         \App\Services\ContactFilter::applyListFilters($contactsQuery, $uiFilters);
 
         if ($selectedLeaderId > 0) {
-            $contactsQuery->where(function (Builder $query) use ($selectedLeaderId) {
-                $query->where('leader_id', $selectedLeaderId)
-                    ->orWhereHas('subLeader', fn (Builder $subLeaderQuery) => $subLeaderQuery->where('leader_id', $selectedLeaderId));
-            });
+            $selectedLeader = $leaders->firstWhere('id', $selectedLeaderId);
+            if ($selectedLeader && $selectedLeader->team_id) {
+                $contactsQuery->where('team_id', $selectedLeader->team_id);
+            } else {
+                $contactsQuery->whereRaw('1 = 0');
+            }
         }
 
         $perPage = (int) $uiFilters['per_page'];
