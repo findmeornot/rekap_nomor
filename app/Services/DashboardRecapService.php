@@ -118,16 +118,15 @@ class DashboardRecapService
         $assistantDailyTargetData = $this->buildDailyTargetData(User::TARGET_SUB_LEADER, 7);
 
         return array_merge($this->emptyPayload(), [
-            'stats' => $stats,
+            'stats' => array_merge($stats, [
+                'daily_labels' => $this->formatDailyLabels($dateLabels),
+            ]),
             'assistantChartData' => $assistantChartData,
             'mainTargetData' => $mainTargetData,
             'mainDailyData' => $mainDailyData,
             'mainDailyTargetData' => $mainDailyTargetData,
             'assistantDailyData' => $assistantDailyData,
             'assistantDailyTargetData' => $assistantDailyTargetData,
-            'stats' => array_merge($stats, [
-                'daily_labels' => $this->formatDailyLabels($dateLabels),
-            ]),
         ]);
     }
 
@@ -220,28 +219,6 @@ class DashboardRecapService
             ->map(fn ($item) => $this->mapLeaderComparisonRow($item));
     }
 
-    private function getLeaderComparisonData(int $year, int $month): Collection
-    {
-        return User::where('role', User::ROLE_LEADER)
-            ->leftJoin('contacts', function ($join) {
-                $join->on('users.id', '=', 'contacts.leader_id')
-                    ->orOn('users.id', '=', 'contacts.contacted_by_leader_id');
-            })
-            ->select('users.id', 'users.name')
-            ->selectRaw(
-                'COUNT(DISTINCT CASE WHEN (YEAR(contacts.created_at) = ? AND MONTH(contacts.created_at) = ?) OR (YEAR(contacts.status_updated_at) = ? AND MONTH(contacts.status_updated_at) = ?) OR (YEAR(contacts.contacted_at) = ? AND MONTH(contacts.contacted_at) = ?) THEN contacts.id END) as total_count',
-                [$year, $month, $year, $month, $year, $month]
-            )
-            ->selectRaw(
-                'COUNT(DISTINCT CASE WHEN contacts.is_contacted = 1 AND ((YEAR(contacts.status_updated_at) = ? AND MONTH(contacts.status_updated_at) = ?) OR (YEAR(contacts.contacted_at) = ? AND MONTH(contacts.contacted_at) = ?)) THEN contacts.id END) as contacted_count',
-                [$year, $month, $year, $month]
-            )
-            ->groupBy('users.id', 'users.name')
-            ->orderByDesc('contacted_count')
-            ->get()
-            ->map(fn ($item) => $this->mapLeaderComparisonRow($item));
-    }
-
     private function mapLeaderComparisonRow(object $item): array
     {
         $totalCount = (int) $item->total_count;
@@ -253,37 +230,6 @@ class DashboardRecapService
             'contacted' => $contactedCount,
             'uncontacted' => max($totalCount - $contactedCount, 0),
         ];
-    }
-
-    private function getSubLeaderComparisonData(int $year, int $month): Collection
-    {
-        return User::where('users.role', User::ROLE_SUB_LEADER)
-            ->leftJoin('users as leaders', 'users.leader_id', '=', 'leaders.id')
-            ->leftJoin('contacts', 'users.id', '=', 'contacts.sub_leader_id')
-            ->select('users.id', 'users.name', 'leaders.name as leader_name')
-            ->selectRaw(
-                'COUNT(DISTINCT CASE WHEN (YEAR(contacts.created_at) = ? AND MONTH(contacts.created_at) = ?) OR (YEAR(contacts.status_updated_at) = ? AND MONTH(contacts.status_updated_at) = ?) OR (YEAR(contacts.contacted_at) = ? AND MONTH(contacts.contacted_at) = ?) THEN contacts.id END) as total_count',
-                [$year, $month, $year, $month, $year, $month]
-            )
-            ->selectRaw(
-                'COUNT(DISTINCT CASE WHEN contacts.is_contacted = 1 AND ((YEAR(contacts.status_updated_at) = ? AND MONTH(contacts.status_updated_at) = ?) OR (YEAR(contacts.contacted_at) = ? AND MONTH(contacts.contacted_at) = ?)) THEN contacts.id END) as contacted_count',
-                [$year, $month, $year, $month]
-            )
-            ->groupBy('users.id', 'users.name', 'leaders.name')
-            ->orderByDesc('total_count')
-            ->get()
-            ->map(function ($item) {
-                $totalCount = (int) $item->total_count;
-                $contactedCount = (int) $item->contacted_count;
-
-                return [
-                    'label' => $item->name,
-                    'group' => $item->leader_name ?? 'Tanpa Leader',
-                    'total' => $totalCount,
-                    'contacted' => $contactedCount,
-                    'uncontacted' => max($totalCount - $contactedCount, 0),
-                ];
-            });
     }
 
     private function getSubLeaderComparisonDataForDay(string $date): Collection

@@ -5,6 +5,7 @@ use App\Http\Controllers\Leader\ContactController as LeaderContactController;
 use App\Http\Controllers\Leader\NumberRequestController as LeaderNumberRequestController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SubLeader\ContactController as SubLeaderContactController;
+use App\Http\Controllers\SuperAdmin\ContactController as SuperAdminContactController;
 use App\Http\Controllers\SuperAdmin\UserManagementController;
 use Illuminate\Support\Facades\Route;
 
@@ -27,7 +28,7 @@ Route::middleware(['auth', 'role:superadmin'])
     ->name('superadmin.')
     ->group(function (): void {
         Route::get('/users', [UserManagementController::class, 'index'])->name('users.index');
-        Route::get('/contacts', [UserManagementController::class, 'contactsIndex'])->name('contacts.index');
+        Route::get('/contacts', [SuperAdminContactController::class, 'index'])->name('contacts.index');
         Route::get('/import', [UserManagementController::class, 'importForm'])->name('import');
         Route::post('/import', [UserManagementController::class, 'import'])->name('import.store');
         Route::post('/leaders', [UserManagementController::class, 'storeLeader'])->name('leaders.store');
@@ -35,9 +36,7 @@ Route::middleware(['auth', 'role:superadmin'])
         Route::post('/teams', [UserManagementController::class, 'storeTeam'])->name('teams.store');
         Route::patch('/users/{user}/assign-team', [UserManagementController::class, 'assignTeam'])
             ->name('users.assign-team');
-        Route::patch('/sub-leaders/{subLeader}/assign-leader', [UserManagementController::class, 'assignLeader'])
-            ->name('sub-leaders.assign-leader');
-        Route::delete('/users/{user}', [UserManagementController::class, 'destroy'])
+Route::delete('/users/{user}', [UserManagementController::class, 'destroy'])
             ->name('users.destroy');
     });
 

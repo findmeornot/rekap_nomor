@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Leader;
 use App\Http\Controllers\Controller;
 use App\Models\Contact;
 use App\Models\User;
+use App\Services\ContactFilter;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -18,8 +19,8 @@ class ContactController extends Controller
     public function index(Request $request): View
     {
         $user = auth()->user();
-        $filters = $this->resolveDateFilter($request);
-        $uiFilters = $this->resolveUiFilters($request);
+        $filters = ContactFilter::resolveDateFilter($request);
+        $uiFilters = ContactFilter::resolveUiFilters($request);
         $selectedSubLeaderId = $request->integer('sub_leader_id');
         $subLeaders = User::query()
             ->where('role', User::ROLE_SUB_LEADER)
@@ -31,8 +32,8 @@ class ContactController extends Controller
             ->withCount([
                 'contactsEntered as contacts_entered_count' => function (Builder $query) use ($user, $filters, $uiFilters): void {
                     $this->applyLeaderContactScope($query, $user);
-                    $this->applyDateFilter($query, $filters);
-                    $this->applyListFilters($query, $uiFilters);
+                    ContactFilter::applyDateFilter($query, $filters);
+                    ContactFilter::applyListFilters($query, $uiFilters, false);
                 },
             ])
             ->orderBy('name')
@@ -46,8 +47,8 @@ class ContactController extends Controller
         $contactsQuery = $this->scopedContacts($user)
             ->with('subLeader:id,name')
             ->latest();
-        $this->applyDateFilter($contactsQuery, $filters);
-        $this->applyListFilters($contactsQuery, $uiFilters);
+        ContactFilter::applyDateFilter($contactsQuery, $filters);
+        ContactFilter::applyListFilters($contactsQuery, $uiFilters, false);
 
         if ($selectedSubLeaderId) {
             $contactsQuery->where('sub_leader_id', $selectedSubLeaderId);
@@ -118,8 +119,8 @@ class ContactController extends Controller
     public function export(Request $request): StreamedResponse
     {
         $user = auth()->user();
-        $filters = $this->resolveDateFilter($request);
-        $uiFilters = $this->resolveUiFilters($request);
+        $filters = ContactFilter::resolveDateFilter($request);
+        $uiFilters = ContactFilter::resolveUiFilters($request);
         $selectedSubLeaderId = $request->integer('sub_leader_id');
         $allowedSubLeaderIds = User::query()
             ->where('role', User::ROLE_SUB_LEADER)
@@ -144,24 +145,24 @@ class ContactController extends Controller
                 ->with('subLeader:id,name')
                 ->orderByDesc('created_at');
 
-            $this->applyDateFilter($contactsQuery, $filters);
-            $this->applyListFilters($contactsQuery, $uiFilters);
+            ContactFilter::applyDateFilter($contactsQuery, $filters);
+            ContactFilter::applyListFilters($contactsQuery, $uiFilters, false);
 
             if ($selectedSubLeaderId) {
                 $contactsQuery->where('sub_leader_id', $selectedSubLeaderId);
             }
 
             $contactsQuery->chunk(200, function ($contacts) use ($handle) {
-                    foreach ($contacts as $contact) {
-                        fputcsv($handle, [
-                            $contact->contact_name ?? '-',
-                            $contact->phone,
-                            $contact->subLeader?->name ?? '-',
-                            $contact->statusLabel(),
-                            $contact->created_at->format('Y-m-d H:i:s'),
-                        ]);
-                    }
-                });
+                foreach ($contacts as $contact) {
+                    fputcsv($handle, [
+                        $contact->contact_name ?? '-',
+                        $contact->phone,
+                        $contact->subLeader?->name ?? '-',
+                        $contact->statusLabel(),
+                        $contact->created_at->format('Y-m-d H:i:s'),
+                    ]);
+                }
+            });
 
             fclose($handle);
         }, $fileName, [
@@ -175,7 +176,6 @@ class ContactController extends Controller
 
         abort_unless($this->leaderCanAccessContact($user, $contact), 404);
 
-        // Do not change contact status when opening WhatsApp — checkbox is the only source of truth.
         return redirect()->away($contact->whatsapp_url);
     }
 
@@ -209,7 +209,6 @@ class ContactController extends Controller
 
         $ids = array_map('intval', $validated['contact_ids']);
 
-        // Only allow updating contacts within the leader's team
         $updated = Contact::query()
             ->whereIn('id', $ids)
             ->where('team_id', $user->team_id)
@@ -228,9 +227,6 @@ class ContactController extends Controller
         ]);
     }
 
-    /**
-     * @return Builder<Contact>
-     */
     private function scopedContacts(User $user): Builder
     {
         $query = Contact::query();
@@ -239,9 +235,6 @@ class ContactController extends Controller
         return $query;
     }
 
-    /**
-     * @param Builder<Contact> $query
-     */
     private function applyLeaderContactScope(Builder $query, User $user): void
     {
         if (! $user->team_id) {
@@ -260,107 +253,5 @@ class ContactController extends Controller
         }
 
         return (int) $contact->team_id === (int) $user->team_id;
-    }
-
-    /**
-     * @return array{period: string, start_date: string|null, end_date: string|null}
-     */
-    private function resolveDateFilter(Request $request): array
-    {
-        $validated = $request->validate([
-            'period' => ['nullable', 'in:all,7d,30d,custom'],
-            'start_date' => ['nullable', 'date'],
-            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
-        ]);
-
-        return [
-            'period' => (string) ($validated['period'] ?? 'all'),
-            'start_date' => isset($validated['start_date']) ? (string) $validated['start_date'] : null,
-            'end_date' => isset($validated['end_date']) ? (string) $validated['end_date'] : null,
-        ];
-    }
-
-    /**
-     * @param Builder<Contact> $query
-     * @param array{period: string, start_date: string|null, end_date: string|null} $filters
-     */
-    private function applyDateFilter(Builder $query, array $filters): void
-    {
-        $period = $filters['period'];
-
-        if ($period === '7d') {
-            $query->where('created_at', '>=', now()->subDays(6)->startOfDay());
-            return;
-        }
-
-        if ($period === '30d') {
-            $query->where('created_at', '>=', now()->subDays(29)->startOfDay());
-            return;
-        }
-
-        if ($period === 'custom') {
-            $startDate = $filters['start_date']
-                ? Carbon::parse($filters['start_date'])->startOfDay()
-                : null;
-            $endDate = $filters['end_date']
-                ? Carbon::parse($filters['end_date'])->endOfDay()
-                : null;
-
-            if ($startDate && $endDate) {
-                $query->whereBetween('created_at', [$startDate, $endDate]);
-                return;
-            }
-
-            if ($startDate) {
-                $query->where('created_at', '>=', $startDate);
-            }
-
-            if ($endDate) {
-                $query->where('created_at', '<=', $endDate);
-            }
-        }
-    }
-
-    /**
-     * @return array{q: string|null, status: string, per_page: int}
-     */
-    private function resolveUiFilters(Request $request): array
-    {
-        $validated = $request->validate([
-            'q' => ['nullable', 'string', 'max:100'],
-            'status' => ['nullable', 'in:all,contacted,uncontacted'],
-            'per_page' => ['nullable', 'in:10,20,50,100'],
-        ]);
-
-        return [
-            'q' => isset($validated['q']) ? trim((string) $validated['q']) : null,
-            'status' => (string) ($validated['status'] ?? 'all'),
-            'per_page' => (int) ($validated['per_page'] ?? 20),
-        ];
-    }
-
-    /**
-     * @param Builder<Contact> $query
-     * @param array{q: string|null, status: string, per_page: int} $uiFilters
-     */
-    private function applyListFilters(Builder $query, array $uiFilters): void
-    {
-        if ($uiFilters['q']) {
-            $keyword = $uiFilters['q'];
-            $query->where(function (Builder $builder) use ($keyword): void {
-                $builder
-                    ->where('contact_name', 'like', "%{$keyword}%")
-                    ->orWhere('phone', 'like', "%{$keyword}%")
-                    ->orWhereHas('subLeader', fn (Builder $subLeaderQuery) => $subLeaderQuery->where('name', 'like', "%{$keyword}%"));
-            });
-        }
-
-        if ($uiFilters['status'] === 'contacted') {
-            $query->where('is_contacted', true);
-        }
-
-        if ($uiFilters['status'] === 'uncontacted') {
-            $query->where('is_contacted', false);
-        }
     }
 }

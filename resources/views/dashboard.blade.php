@@ -66,13 +66,13 @@
                 <div class="grid gap-6 lg:grid-cols-2">
                     <div class="panel fade-in-up">
                         <h3 class="section-title">Grafik Harian Marketing Utama</h3>
-                        <p class="section-subtitle">Jumlah kontak yang sudah dihubungi per hari selama 7 hari terakhir, dengan garis target harian.</p>
+                        <p class="section-subtitle">Jumlah kontak yang sudah <strong>kamu</strong> hubungi per hari selama 7 hari terakhir, dengan garis target harian.</p>
                         <div class="mt-4">
                             <canvas id="mainDailyChart" width="600" height="320"></canvas>
                         </div>
                         <div class="mt-4 space-y-2 text-sm text-slate-700">
-                            <p>Total kontak: <strong>{{ $stats['contacts'] }}</strong></p>
-                            <p>Sudah dihubungi: <strong>{{ $stats['contacted'] }}</strong></p>
+                            <p>Total kontak tim: <strong>{{ $stats['contacts'] }}</strong></p>
+                            <p>Sudah kamu hubungi: <strong>{{ $mainTargetData['contacted'] }}</strong></p>
                             <p>Sisa target: <strong>{{ $mainTargetData['remaining'] }}</strong></p>
                         </div>
                     </div>
