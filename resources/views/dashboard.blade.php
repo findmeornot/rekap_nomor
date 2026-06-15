@@ -117,7 +117,6 @@
                     <div class="panel fade-in-up">
                         <h3 class="section-title">Ringkasan Sistem</h3>
                         <div class="mt-4 space-y-2 text-sm text-slate-700">
-                            <p>Sub leader belum punya leader: <strong>{{ $meta['sub_leaders_without_leader'] ?? 0 }}</strong></p>
                             <p>
                                 Marketing Utama teraktif:
                                 <strong>{{ $meta['top_leader']?->name ?? '-' }}</strong>
