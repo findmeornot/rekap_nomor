@@ -88,7 +88,7 @@
 
                 <div class="panel fade-in-up">
                     <h3 class="section-title">Progres Target Per Asisten Marketing</h3>
-                    <p class="section-subtitle">Total nomor yang sudah diinput masing-masing asisten marketing dibandingkan target {{ \App\Models\User::TARGET_SUB_LEADER }} nomor.</p>
+                    <p class="section-subtitle">Nomor yang diinput <strong>hari ini</strong> per asisten marketing dibandingkan target harian {{ \App\Models\User::TARGET_SUB_LEADER }} nomor.</p>
                     <div class="mt-4" id="assistantProgressContainer">
                         <canvas id="assistantProgressChart" width="800" height="320"></canvas>
                     </div>

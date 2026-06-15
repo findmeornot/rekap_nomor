@@ -81,7 +81,7 @@ class DashboardRecapService
                 fn ($query) => $query->where('team_id', $user->team_id),
                 fn ($query) => $query->whereRaw('1 = 0')
             )
-            ->withCount(['contactsEntered as contacts_entered_count'])
+            ->withCount(['contactsEntered as contacts_entered_count' => fn ($q) => $q->whereDate('created_at', now()->toDateString())])
             ->orderByDesc('contacts_entered_count')
             ->get();
 
