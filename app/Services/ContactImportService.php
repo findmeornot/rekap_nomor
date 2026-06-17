@@ -16,10 +16,15 @@ class ContactImportService
     {
         $extension = strtolower((string) $file->getClientOriginalExtension());
 
+        if (! in_array($extension, ['csv', 'txt', 'xlsx', 'xls'], true)) {
+            throw new \RuntimeException(
+                "Format file tidak didukung: .{$extension}. Format yang diterima: .csv, .txt, .xlsx, .xls."
+            );
+        }
+
         $rawRows = match ($extension) {
             'csv', 'txt' => $this->extractCsvRows($file),
             'xlsx', 'xls' => $this->extractSpreadsheetRows($file),
-            default => [],
         };
 
         return $this->normalizeRows($rawRows);
@@ -96,7 +101,7 @@ class ContactImportService
     {
         $handle = fopen($file->getRealPath(), 'r');
         if (! $handle) {
-            return [];
+            throw new \RuntimeException('Gagal membaca file. Pastikan file tidak rusak dan dapat dibuka.');
         }
 
         $rows = [];
@@ -148,7 +153,16 @@ class ContactImportService
         }
 
         if ($phoneIndex === null) {
-            return [];
+            $foundColumns = array_filter($header, fn ($col) => $col !== '');
+            $foundDisplay = ! empty($foundColumns)
+                ? implode(', ', $foundColumns)
+                : '(tidak ada kolom terdeteksi)';
+
+            throw new \RuntimeException(
+                "Kolom nomor telepon tidak ditemukan. " .
+                "Kolom yang ditemukan di file: {$foundDisplay}. " .
+                "Kolom yang dibutuhkan (salah satu): phone, nomor, no hp, nohp, atau number."
+            );
         }
 
         $rows = [];

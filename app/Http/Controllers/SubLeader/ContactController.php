@@ -103,9 +103,14 @@ class ContactController extends Controller
             ]);
         }
 
-        $rows = $contactImportService->extractRows($request->file('file'));
+        try {
+            $rows = $contactImportService->extractRows($request->file('file'));
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['file' => $e->getMessage()]);
+        }
+
         if (empty($rows)) {
-            return back()->withErrors(['file' => 'File kosong atau format kolom tidak dikenali.']);
+            return back()->withErrors(['file' => 'File tidak memiliki data. Pastikan file berisi setidaknya satu baris data selain header.']);
         }
 
         $summary = $contactImportService->importRows($rows, [
