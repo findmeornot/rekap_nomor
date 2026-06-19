@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Model;
 
 #[Fillable([
@@ -57,7 +58,7 @@ class Contact extends Model
     public function applyStatus(User $user, string $status): void
     {
         $this->update([
-            'status' => $status,
+            'status'           => $status,
             'status_updated_by' => $user->id,
             'status_updated_at' => now(),
         ]);
@@ -66,22 +67,48 @@ class Contact extends Model
     protected function casts(): array
     {
         return [
-            'contacted_at' => 'datetime',
+            'contacted_at'     => 'datetime',
             'status_updated_at' => 'datetime',
-            'is_contacted' => 'boolean',
+            'is_contacted'     => 'boolean',
         ];
     }
 
+    /**
+     * Update the Toploker-specific (legacy) contacted fields on this contact.
+     * Used when a Toploker leader marks a contact.
+     */
     public function setIsContacted(User $user, bool $isContacted): void
     {
         $this->update([
-            'is_contacted' => $isContacted,
-            'status' => $isContacted ? self::STATUS_CONTACTED : self::STATUS_UNCONTACTED,
-            'status_updated_by' => $user->id,
-            'status_updated_at' => now(),
-            'contacted_at' => $isContacted ? now() : null,
+            'is_contacted'          => $isContacted,
+            'status'                => $isContacted ? self::STATUS_CONTACTED : self::STATUS_UNCONTACTED,
+            'status_updated_by'     => $user->id,
+            'status_updated_at'     => now(),
+            'contacted_at'          => $isContacted ? now() : null,
             'contacted_by_leader_id' => $isContacted ? $user->id : null,
         ]);
+
+        // Also write to channel history for consistency
+        ContactChannelHistory::setContactedForChannel($this, $user, $isContacted, User::MARKETING_CHANNEL_TOPLOKER);
+    }
+
+    /**
+     * Mark this contact as contacted/uncontacted for a specific marketing channel.
+     * For Toploker: also updates the legacy is_contacted field.
+     * For Topmatch/KerjaMalam: only writes to contact_channel_histories.
+     */
+    public function setChannelContacted(User $user, bool $isContacted): void
+    {
+        $channel = $user->marketing_channel ?? User::MARKETING_CHANNEL_TOPLOKER;
+
+        if ($channel === User::MARKETING_CHANNEL_TOPLOKER) {
+            $this->setIsContacted($user, $isContacted);
+
+            return;
+        }
+
+        // For special channels: only track in contact_channel_histories
+        ContactChannelHistory::setContactedForChannel($this, $user, $isContacted, $channel);
     }
 
     public function getWhatsappPhoneAttribute(): string
@@ -129,5 +156,13 @@ class Contact extends Model
     public function team(): BelongsTo
     {
         return $this->belongsTo(Team::class);
+    }
+
+    /**
+     * All channel history records for this contact.
+     */
+    public function contactChannelHistories(): HasMany
+    {
+        return $this->hasMany(ContactChannelHistory::class);
     }
 }

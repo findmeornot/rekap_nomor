@@ -1,11 +1,31 @@
 <x-app-layout>
     <div id="toast-container" class="fixed right-4 top-4 z-50 flex flex-col gap-2 items-end pointer-events-none" style="position:fixed;top:1rem;right:1rem;z-index:9999;"></div>
     <x-slot name="header">
-        <div>
-            <h2 class="text-2xl font-semibold leading-tight text-slate-900">
-                Rekap Nomor Marketing Utama
-            </h2>
-            <p class="mt-1 text-sm text-slate-600">Pantau semua input nomor dari sub leader di bawah kamu.</p>
+        <div class="flex flex-wrap items-center gap-3">
+            <div>
+                <div class="flex items-center gap-2">
+                    <h2 class="text-2xl font-semibold leading-tight text-slate-900">
+                        Rekap Nomor Marketing Utama
+                    </h2>
+                    @php
+                        $channelBadgeClass = match($channelLabel) {
+                            'Topmatch'   => 'bg-violet-100 text-violet-700',
+                            'Kerja Malam' => 'bg-amber-100 text-amber-700',
+                            default      => 'bg-blue-100 text-blue-700',
+                        };
+                    @endphp
+                    <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {{ $channelBadgeClass }}">
+                        {{ $channelLabel }}
+                    </span>
+                </div>
+                <p class="mt-1 text-sm text-slate-600">
+                    @if ($isSpecialChannel)
+                        Lihat & kelola status nomor dari semua asisten marketing Toploker.
+                    @else
+                        Pantau semua input nomor dari asisten marketing di bawah kamu.
+                    @endif
+                </p>
+            </div>
         </div>
     </x-slot>
 
@@ -14,8 +34,13 @@
             <div class="panel fade-in-up">
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                        <h3 class="section-title">Asisten Marketing Saya</h3>
-                        <p class="section-subtitle">Pilih asisten marketing untuk melihat data yang lebih spesifik.</p>
+                        @if ($isSpecialChannel)
+                            <h3 class="section-title">Filter &amp; Pencarian Nomor</h3>
+                            <p class="section-subtitle">Tampilan status berdasarkan channel <strong>{{ $channelLabel }}</strong> saja.</p>
+                        @else
+                            <h3 class="section-title">Asisten Marketing Saya</h3>
+                            <p class="section-subtitle">Pilih asisten marketing untuk melihat data yang lebih spesifik.</p>
+                        @endif
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <a href="{{ route('leader.contacts.export', request()->only('sub_leader_id', 'period', 'start_date', 'end_date', 'q', 'status')) }}" class="btn-main">Export CSV</a>
@@ -28,11 +53,12 @@
                             type="search"
                             name="q"
                             value="{{ $uiFilters['q'] ?? '' }}"
-                            placeholder="Cari nama, nomor, sub leader..."
+                            placeholder="Cari nama, nomor..."
                             autocomplete="off"
                             aria-label="Cari data kontak"
                             class="xl:col-span-2"
                         />
+                        @if (!$isSpecialChannel)
                         <select name="sub_leader_id" aria-label="Pilih asisten marketing">
                             <option value="">Semua Asisten Marketing</option>
                             @foreach ($subLeaders as $subLeader)
@@ -41,6 +67,7 @@
                                 </option>
                             @endforeach
                         </select>
+                        @endif
                         <select name="status" aria-label="Pilih status">
                             <option value="all" @selected(($uiFilters['status'] ?? 'all') === 'all')>Semua Status</option>
                             <option value="contacted" @selected(($uiFilters['status'] ?? 'all') === 'contacted')>Sudah Dihubungi</option>
@@ -78,6 +105,7 @@
                     </div>
                 </form>
 
+                @if (!$isSpecialChannel)
                 <div class="mt-4 flex flex-wrap gap-2">
                     <a
                         href="{{ route('leader.contacts.index', request()->only('period', 'start_date', 'end_date')) }}"
@@ -93,24 +121,29 @@
                             {{ $subLeader->name }} ({{ $subLeader->contacts_entered_count }} nomor)
                         </a>
                     @empty
-                        <p class="text-sm text-slate-500">Belum ada sub leader yang ditugaskan.</p>
+                        <p class="text-sm text-slate-500">Belum ada asisten marketing yang ditugaskan.</p>
                     @endforelse
                 </div>
+                @else
+                <div class="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-700">
+                    <strong>Info:</strong> Status "Sudah Dihubungi" yang ditampilkan hanya mencerminkan aktivitas channel <strong>{{ $channelLabel }}</strong>. Nomor yang sudah dihubungi oleh channel lain tetap tampil sebagai belum dihubungi di sini.
+                </div>
+                @endif
             </div>
 
             <div class="panel fade-in-up">
-                <h3 class="section-title">Ringkasan Marketing Utama</h3>
+                <h3 class="section-title">Ringkasan Marketing Utama — {{ $channelLabel }}</h3>
                 <div class="stats-grid mt-4">
                     <div class="stat-card">
-                        <p class="text-sm font-medium text-slate-500">Total Kontak Tim</p>
+                        <p class="text-sm font-medium text-slate-500">{{ $isSpecialChannel ? 'Total Nomor Tersedia' : 'Total Kontak Tim' }}</p>
                         <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($totalContactsCount) }}</p>
                     </div>
                     <div class="stat-card">
-                        <p class="text-sm font-medium text-slate-500">Total Sudah Dihubungi</p>
+                        <p class="text-sm font-medium text-slate-500">Total Sudah Dihubungi ({{ $channelLabel }})</p>
                         <p id="total-contacted-count" class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($totalContactedCount) }}</p>
                     </div>
                     <div class="stat-card">
-                        <p class="text-sm font-medium text-slate-500">Dihubungi Bulan Ini</p>
+                        <p class="text-sm font-medium text-slate-500">Dihubungi Bulan Ini ({{ $channelLabel }})</p>
                         <p id="contacted-this-month-count" class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($contactedThisMonthCount) }}</p>
                     </div>
                 </div>
@@ -250,12 +283,17 @@
                         </thead>
                         <tbody>
                             @forelse ($contacts as $contact)
+                                @php
+                                    // Use channel-specific contacted status from the map
+                                    $isContactedInChannel = $channelContactedMap[$contact->id] ?? false;
+                                    $statusLabelText = $isContactedInChannel ? 'Sudah Dihubungi' : 'Belum Dihubungi';
+                                @endphp
                                 <tr data-contact-id="{{ $contact->id }}" data-phone="{{ $contact->phone }}">
                                     <td>{{ $contact->contact_name ?? '-' }}</td>
                                     <td class="font-medium">{{ $contact->phone }}</td>
                                     <td>{{ $contact->subLeader?->name ?? '-' }}</td>
                                     <td>
-                                        <span class="contact-status-label">{{ $contact->statusLabel() }}</span>
+                                        <span class="contact-status-label">{{ $statusLabelText }}</span>
                                     </td>
                                     <td>{{ $contact->created_at->format('d M Y H:i') }}</td>
                                     <td>
@@ -266,14 +304,19 @@
                                             data-contact-id="{{ $contact->id }}"
                                             data-status-updated-at="{{ optional($contact->status_updated_at)->format('Y-m') }}"
                                             aria-label="Tandai sudah dihubungi"
-                                            @checked($contact->isContacted())
+                                            @checked($isContactedInChannel)
                                         />
                                     </td>
-                                    <td class="contacted-at-cell">{{ optional($contact->status_updated_at ?? $contact->contacted_at)->format('d M Y H:i') ?? '-' }}</td>
+                                    <td class="contacted-at-cell">
+                                        @php
+                                            $channelContactedAt = $channelContactedDateMap[$contact->id] ?? null;
+                                        @endphp
+                                        {{ $channelContactedAt ? \Carbon\Carbon::parse($channelContactedAt)->format('d M Y H:i') : '-' }}
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-4 py-4 text-slate-500">Belum ada data nomor.</td>
+                                    <td colspan="7" class="px-4 py-4 text-slate-500">Belum ada data nomor.</td>
                                 </tr>
                             @endforelse
                         </tbody>

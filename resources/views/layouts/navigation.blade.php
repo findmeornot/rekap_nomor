@@ -38,12 +38,14 @@
             'active' => request()->routeIs('leader.contacts.*'),
             'icon' => 'list',
         ];
-        $moduleItems[] = [
-            'label' => 'Permintaan Nomor',
-            'href' => route('leader.requests.index'),
-            'active' => request()->routeIs('leader.requests.*'),
-            'icon' => 'request',
-        ];
+        if (!Auth::user()->isSpecialChannel()) {
+            $moduleItems[] = [
+                'label' => 'Permintaan Nomor',
+                'href' => route('leader.requests.index'),
+                'active' => request()->routeIs('leader.requests.*'),
+                'icon' => 'request',
+            ];
+        }
     }
 
     if (Auth::user()->isSubLeader()) {

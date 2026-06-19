@@ -5,7 +5,7 @@
                 <h2 class="text-2xl font-semibold leading-tight text-slate-900">
                     Manajemen User
                 </h2>
-                <p class="mt-1 text-sm text-slate-600">Kelola tim, Marketing Utama, dan Asisten Marketing.</p>
+                <p class="mt-1 text-sm text-slate-600">Kelola tim, Marketing Utama (Toploker, Topmatch, Kerja Malam), dan Asisten Marketing.</p>
             </div>
             <a href="{{ route('superadmin.contacts.index') }}" class="btn-main">
                 Lihat Data Per Marketing Utama
@@ -29,11 +29,16 @@
                 </div>
             @endif
 
-            <div class="grid gap-6 lg:grid-cols-2">
-                <div class="panel fade-in-up">
-                    <h3 class="section-title">Tambah Marketing Utama</h3>
-                    <form class="mt-4 space-y-4" method="POST" action="{{ route('superadmin.leaders.store') }}">
-                        @csrf
+            {{-- ================================================================
+                 TAMBAH MARKETING UTAMA  (semua channel)
+                 ================================================================ --}}
+            <div class="panel fade-in-up">
+                <h3 class="section-title">Tambah Marketing Utama</h3>
+                <p class="section-subtitle">Pilih channel marketing saat membuat akun Marketing Utama baru.</p>
+                <form class="mt-4 space-y-4" method="POST" action="{{ route('superadmin.leaders.store') }}"
+                      x-data="{ channel: 'toploker' }">
+                    @csrf
+                    <div class="grid gap-4 md:grid-cols-2">
                         <div>
                             <x-input-label for="leader_name" value="Nama" />
                             <x-text-input id="leader_name" name="name" class="mt-1 block w-full" required />
@@ -47,22 +52,37 @@
                             <x-text-input id="leader_password" type="password" name="password" class="mt-1 block w-full" required />
                         </div>
                         <div>
-                            <x-input-label for="leader_team_id" value="Pilih Tim" />
-                            <select id="leader_team_id" name="team_id" class="mt-1 block w-full" required>
+                            <x-input-label for="leader_marketing_channel" value="Channel Marketing" />
+                            <select id="leader_marketing_channel" name="marketing_channel" class="mt-1 block w-full" x-model="channel" required>
+                                <option value="toploker">Toploker</option>
+                                <option value="topmatch">Topmatch</option>
+                                <option value="kerja_malam">Kerja Malam</option>
+                            </select>
+                        </div>
+                        <div x-show="channel === 'toploker'">
+                            <x-input-label for="leader_team_id" value="Pilih Tim (Toploker)" />
+                            <select id="leader_team_id" name="team_id" class="mt-1 block w-full"
+                                    :required="channel === 'toploker'">
                                 <option value="">-- Pilih Tim --</option>
                                 @foreach ($teams as $team)
                                     <option value="{{ $team->id }}">{{ $team->name }}</option>
                                 @endforeach
                             </select>
                         </div>
-                        <x-primary-button>Simpan Marketing Utama</x-primary-button>
-                    </form>
-                </div>
+                    </div>
+                    <x-primary-button>Simpan Marketing Utama</x-primary-button>
+                </form>
+            </div>
 
-                <div class="panel fade-in-up">
-                    <h3 class="section-title">Tambah Asisten Marketing</h3>
-                    <form class="mt-4 space-y-4" method="POST" action="{{ route('superadmin.sub-leaders.store') }}">
-                        @csrf
+            {{-- ================================================================
+                 TAMBAH ASISTEN MARKETING  (Toploker only)
+                 ================================================================ --}}
+            <div class="panel fade-in-up">
+                <h3 class="section-title">Tambah Asisten Marketing</h3>
+                <p class="section-subtitle">Asisten Marketing hanya tersedia untuk channel <strong>Toploker</strong>.</p>
+                <form class="mt-4 space-y-4" method="POST" action="{{ route('superadmin.sub-leaders.store') }}">
+                    @csrf
+                    <div class="grid gap-4 md:grid-cols-2">
                         <div>
                             <x-input-label for="sub_name" value="Nama" />
                             <x-text-input id="sub_name" name="name" class="mt-1 block w-full" required />
@@ -84,11 +104,14 @@
                                 @endforeach
                             </select>
                         </div>
-                        <x-primary-button>Simpan Asisten Marketing</x-primary-button>
-                    </form>
-                </div>
+                    </div>
+                    <x-primary-button>Simpan Asisten Marketing</x-primary-button>
+                </form>
             </div>
 
+            {{-- ================================================================
+                 TAMBAH TIM
+                 ================================================================ --}}
             <div class="panel fade-in-up">
                 <h3 class="section-title">Tambah Tim</h3>
                 <form class="mt-4 space-y-4" method="POST" action="{{ route('superadmin.teams.store') }}">
@@ -101,8 +124,17 @@
                 </form>
             </div>
 
+            {{-- ================================================================
+                 DAFTAR MARKETING UTAMA — TOPLOKER
+                 ================================================================ --}}
             <div class="panel fade-in-up">
-                <h3 class="section-title">Daftar Marketing Utama</h3>
+                <div class="flex items-center gap-3">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+                        Toploker
+                    </span>
+                    <h3 class="section-title mb-0">Daftar Marketing Utama Toploker</h3>
+                </div>
                 <div class="table-wrap mt-4">
                     <table class="table-clean">
                         <thead>
@@ -145,7 +177,7 @@
                                                 'id' => $leader->id,
                                                 'name' => $leader->name,
                                                 'username' => $leader->email,
-                                                'role' => 'Marketing Utama',
+                                                'role' => 'Marketing Utama Toploker',
                                                 'deleteUrl' => route('superadmin.users.destroy', $leader),
                                                 'rowId' => 'leader-' . $leader->id,
                                             ]))"
@@ -162,7 +194,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-4 py-4 text-slate-500">Belum ada Marketing Utama.</td>
+                                    <td colspan="6" class="px-4 py-4 text-slate-500">Belum ada Marketing Utama Toploker.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -170,8 +202,143 @@
                 </div>
             </div>
 
+            {{-- ================================================================
+                 DAFTAR MARKETING UTAMA — TOPMATCH
+                 ================================================================ --}}
             <div class="panel fade-in-up">
-                <h3 class="section-title">Daftar Asisten Marketing</h3>
+                <div class="flex items-center gap-3">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700">
+                        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+                        Topmatch
+                    </span>
+                    <h3 class="section-title mb-0">Daftar Marketing Utama Topmatch</h3>
+                </div>
+                <p class="mt-1 text-xs text-slate-500">Marketing Utama Topmatch dapat melihat semua nomor. Status hubungi hanya tercatat di channel Topmatch.</p>
+                <div class="table-wrap mt-4">
+                    <table class="table-clean">
+                        <thead>
+                            <tr>
+                                <th>Nama</th>
+                                <th>Email</th>
+                                <th>Target Harian</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody data-colspan="4">
+                            @forelse ($leadersTopmatch as $leader)
+                                <tr data-user-row="leader-{{ $leader->id }}">
+                                    <td>{{ $leader->name }}</td>
+                                    <td>{{ $leader->email }}</td>
+                                    <td>{{ number_format(\App\Models\User::TARGET_TOPMATCH) }} nomor/hari</td>
+                                    <td class="text-right">
+                                        <button
+                                            type="button"
+                                            title="Hapus User"
+                                            aria-label="Hapus User"
+                                            class="btn-danger inline-flex h-10 w-10 items-center justify-center p-0"
+                                            onclick="openDeleteUserModal(@js([
+                                                'id' => $leader->id,
+                                                'name' => $leader->name,
+                                                'username' => $leader->email,
+                                                'role' => 'Marketing Utama Topmatch',
+                                                'deleteUrl' => route('superadmin.users.destroy', $leader),
+                                                'rowId' => 'leader-' . $leader->id,
+                                            ]))"
+                                        >
+                                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M3 6h18"></path>
+                                                <path d="M19 6l-1 14H6L5 6"></path>
+                                                <path d="M10 11v6"></path>
+                                                <path d="M14 11v6"></path>
+                                                <path d="M9 6V4h6v2"></path>
+                                            </svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="px-4 py-4 text-slate-500">Belum ada Marketing Utama Topmatch.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {{-- ================================================================
+                 DAFTAR MARKETING UTAMA — KERJA MALAM
+                 ================================================================ --}}
+            <div class="panel fade-in-up">
+                <div class="flex items-center gap-3">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+                        Kerja Malam
+                    </span>
+                    <h3 class="section-title mb-0">Daftar Marketing Utama Kerja Malam</h3>
+                </div>
+                <p class="mt-1 text-xs text-slate-500">Marketing Utama Kerja Malam dapat melihat semua nomor. Status hubungi hanya tercatat di channel Kerja Malam.</p>
+                <div class="table-wrap mt-4">
+                    <table class="table-clean">
+                        <thead>
+                            <tr>
+                                <th>Nama</th>
+                                <th>Email</th>
+                                <th>Target Harian</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody data-colspan="4">
+                            @forelse ($leadersKerjaMalam as $leader)
+                                <tr data-user-row="leader-{{ $leader->id }}">
+                                    <td>{{ $leader->name }}</td>
+                                    <td>{{ $leader->email }}</td>
+                                    <td>{{ number_format(\App\Models\User::TARGET_KERJA_MALAM) }} nomor/hari</td>
+                                    <td class="text-right">
+                                        <button
+                                            type="button"
+                                            title="Hapus User"
+                                            aria-label="Hapus User"
+                                            class="btn-danger inline-flex h-10 w-10 items-center justify-center p-0"
+                                            onclick="openDeleteUserModal(@js([
+                                                'id' => $leader->id,
+                                                'name' => $leader->name,
+                                                'username' => $leader->email,
+                                                'role' => 'Marketing Utama Kerja Malam',
+                                                'deleteUrl' => route('superadmin.users.destroy', $leader),
+                                                'rowId' => 'leader-' . $leader->id,
+                                            ]))"
+                                        >
+                                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                                <path d="M3 6h18"></path>
+                                                <path d="M19 6l-1 14H6L5 6"></path>
+                                                <path d="M10 11v6"></path>
+                                                <path d="M14 11v6"></path>
+                                                <path d="M9 6V4h6v2"></path>
+                                            </svg>
+                                        </button>
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="4" class="px-4 py-4 text-slate-500">Belum ada Marketing Utama Kerja Malam.</td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            {{-- ================================================================
+                 DAFTAR ASISTEN MARKETING  (Toploker only)
+                 ================================================================ --}}
+            <div class="panel fade-in-up">
+                <div class="flex items-center gap-3">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
+                        Toploker
+                    </span>
+                    <h3 class="section-title mb-0">Daftar Asisten Marketing</h3>
+                </div>
                 <div class="table-wrap mt-4">
                     <table class="table-clean">
                         <thead>
@@ -239,6 +406,9 @@
                 </div>
             </div>
 
+            {{-- ================================================================
+                 DAFTAR TIM
+                 ================================================================ --}}
             <div class="panel fade-in-up">
                 <h3 class="section-title">Daftar Tim</h3>
                 <div class="table-wrap mt-4">

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Contact;
+use App\Models\ContactChannelHistory;
 use App\Models\Team;
 use App\Models\User;
 use Carbon\Carbon;
@@ -39,6 +40,8 @@ class DashboardRecapService
         $subLeaderChartDate = $this->getSubLeaderChartDate($request);
 
         $leaderComparisonData = $this->getLeaderComparisonDataForDay($leaderChartDate);
+        $topmatchComparisonData = $this->getTopmatchLeaderComparisonDataForDay($leaderChartDate);
+        $kerjaMalamComparisonData = $this->getKerjaMalamLeaderComparisonDataForDay($leaderChartDate);
         $subLeaderComparisonData = $this->getSubLeaderComparisonDataForDay($subLeaderChartDate);
         
         $teamComparisonData = $this->getTeamComparisonData($year, $month);
@@ -48,6 +51,8 @@ class DashboardRecapService
             'stats' => $stats,
             'meta' => $meta,
             'leaderComparisonData' => $leaderComparisonData,
+            'topmatchComparisonData' => $topmatchComparisonData,
+            'kerjaMalamComparisonData' => $kerjaMalamComparisonData,
             'subLeaderComparisonData' => $subLeaderComparisonData,
             'teamComparisonData' => $teamComparisonData,
             'monthlyTotalsData' => $monthlyTotalsData,
@@ -59,6 +64,14 @@ class DashboardRecapService
 
     private function getLeaderDashboardData(User $user): array
     {
+        $channel = $user->marketing_channel ?? User::MARKETING_CHANNEL_TOPLOKER;
+        $dailyTarget = $user->getDailyTarget();
+
+        if ($user->isSpecialChannel()) {
+            return $this->getSpecialChannelLeaderDashboardData($user, $channel, $dailyTarget);
+        }
+
+        // --- Toploker (existing behaviour) ---
         $teamContacts = Contact::query()
             ->when(
                 $user->team_id,
@@ -92,8 +105,8 @@ class DashboardRecapService
             ];
         })->all();
 
-        $mainTargetData = $this->buildMainTargetData($personalHandled);
-        $stats = $this->buildLeaderStats($contacts, $contacted, $assistantSubLeaders->count(), $mainTargetData['progress']);
+        $mainTargetData = $this->buildMainTargetData($personalHandled, $dailyTarget);
+        $stats = $this->buildLeaderStats($contacts, $contacted, $assistantSubLeaders->count(), $mainTargetData['progress'], $dailyTarget);
 
         $dateLabels = $this->buildDateLabels(7);
         $mainDailyData = $this->pluckDailyCounts(
@@ -114,7 +127,7 @@ class DashboardRecapService
             $dateLabels
         );
 
-        $mainDailyTargetData = $this->buildDailyTargetData(User::TARGET_LEADER, 7);
+        $mainDailyTargetData = $this->buildDailyTargetData($dailyTarget, 7);
         $assistantDailyTargetData = $this->buildDailyTargetData(User::TARGET_SUB_LEADER, 7);
 
         return array_merge($this->emptyPayload(), [
@@ -127,6 +140,73 @@ class DashboardRecapService
             'mainDailyTargetData' => $mainDailyTargetData,
             'assistantDailyData' => $assistantDailyData,
             'assistantDailyTargetData' => $assistantDailyTargetData,
+        ]);
+    }
+
+    private function getSpecialChannelLeaderDashboardData(User $user, string $channel, int $dailyTarget): array
+    {
+        // Total contacts visible (all contacts entered by any sub-leader)
+        $contacts = Contact::whereNotNull('sub_leader_id')->count();
+
+        // Total contacted in this channel
+        $contacted = ContactChannelHistory::where('marketing_channel', $channel)
+            ->where('is_contacted', true)
+            ->count();
+
+        // Today's count by this user in this channel
+        $personalHandled = ContactChannelHistory::where('marketing_channel', $channel)
+            ->where('marketing_user_id', $user->id)
+            ->where('is_contacted', true)
+            ->whereDate('status_updated_at', now()->toDateString())
+            ->count();
+
+        $mainTargetData = $this->buildMainTargetData($personalHandled, $dailyTarget);
+        $stats = $this->buildLeaderStats($contacts, $contacted, 0, $mainTargetData['progress'], $dailyTarget);
+
+        $dateLabels = $this->buildDateLabels(7);
+
+        // Build daily main data from channel history
+        $mainDailyData = $this->pluckDailyCounts(
+            ContactChannelHistory::where('marketing_channel', $channel)
+                ->where('marketing_user_id', $user->id)
+                ->where('is_contacted', true),
+            'status_updated_at',
+            $dateLabels
+        );
+
+        $mainDailyTargetData = $this->buildDailyTargetData($dailyTarget, 7);
+
+        // Fetch all leaders in the same special channel for peer comparison
+        $channelLeaders = User::where('users.role', User::ROLE_LEADER)
+            ->where('users.marketing_channel', $channel)
+            ->orderBy('users.name')
+            ->get();
+
+        $leadersContactedToday = ContactChannelHistory::where('marketing_channel', $channel)
+            ->where('is_contacted', true)
+            ->whereDate('status_updated_at', now()->toDateString())
+            ->select('marketing_user_id', DB::raw('COUNT(*) as contacted_count'))
+            ->groupBy('marketing_user_id')
+            ->pluck('contacted_count', 'marketing_user_id')
+            ->toArray();
+
+        $assistantChartData = $channelLeaders->map(function ($leader) use ($leadersContactedToday) {
+            return [
+                'label' => $leader->name,
+                'count' => $leadersContactedToday[$leader->id] ?? 0,
+            ];
+        })->all();
+
+        return array_merge($this->emptyPayload(), [
+            'stats' => array_merge($stats, [
+                'daily_labels' => $this->formatDailyLabels($dateLabels),
+            ]),
+            'assistantChartData' => $assistantChartData,
+            'mainTargetData' => $mainTargetData,
+            'mainDailyData' => $mainDailyData,
+            'mainDailyTargetData' => $mainDailyTargetData,
+            'assistantDailyData' => [],
+            'assistantDailyTargetData' => [],
         ]);
     }
 
@@ -199,7 +279,11 @@ class DashboardRecapService
 
     private function getLeaderComparisonDataForDay(string $date): Collection
     {
-        return User::where('role', User::ROLE_LEADER)
+        return User::where('users.role', User::ROLE_LEADER)
+            ->where(function ($q) {
+                $q->whereNull('users.marketing_channel')
+                  ->orWhere('users.marketing_channel', User::MARKETING_CHANNEL_TOPLOKER);
+            })
             ->leftJoin('contacts', function ($join) {
                 $join->on('users.id', '=', 'contacts.leader_id')
                     ->orOn('users.id', '=', 'contacts.contacted_by_leader_id');
@@ -230,6 +314,52 @@ class DashboardRecapService
             'contacted' => $contactedCount,
             'uncontacted' => max($totalCount - $contactedCount, 0),
         ];
+    }
+
+    private function getTopmatchLeaderComparisonDataForDay(string $date): Collection
+    {
+        return User::where('users.role', User::ROLE_LEADER)
+            ->where('users.marketing_channel', User::MARKETING_CHANNEL_TOPMATCH)
+            ->leftJoin('contact_channel_histories', function ($join) use ($date) {
+                $join->on('users.id', '=', 'contact_channel_histories.marketing_user_id')
+                    ->where('contact_channel_histories.marketing_channel', '=', User::MARKETING_CHANNEL_TOPMATCH)
+                    ->where('contact_channel_histories.is_contacted', '=', 1)
+                    ->whereRaw('DATE(contact_channel_histories.contacted_at) = ?', [$date]);
+            })
+            ->select('users.id', 'users.name')
+            ->selectRaw('COUNT(DISTINCT contact_channel_histories.id) as contacted_count')
+            ->groupBy('users.id', 'users.name')
+            ->orderByDesc('contacted_count')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'label' => $item->name,
+                    'contacted' => (int) $item->contacted_count,
+                ];
+            });
+    }
+
+    private function getKerjaMalamLeaderComparisonDataForDay(string $date): Collection
+    {
+        return User::where('users.role', User::ROLE_LEADER)
+            ->where('users.marketing_channel', User::MARKETING_CHANNEL_KERJA_MALAM)
+            ->leftJoin('contact_channel_histories', function ($join) use ($date) {
+                $join->on('users.id', '=', 'contact_channel_histories.marketing_user_id')
+                    ->where('contact_channel_histories.marketing_channel', '=', User::MARKETING_CHANNEL_KERJA_MALAM)
+                    ->where('contact_channel_histories.is_contacted', '=', 1)
+                    ->whereRaw('DATE(contact_channel_histories.contacted_at) = ?', [$date]);
+            })
+            ->select('users.id', 'users.name')
+            ->selectRaw('COUNT(DISTINCT contact_channel_histories.id) as contacted_count')
+            ->groupBy('users.id', 'users.name')
+            ->orderByDesc('contacted_count')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'label' => $item->name,
+                    'contacted' => (int) $item->contacted_count,
+                ];
+            });
     }
 
     private function getSubLeaderComparisonDataForDay(string $date): Collection
@@ -351,25 +481,25 @@ class DashboardRecapService
         });
     }
 
-    private function buildMainTargetData(int $contacted): array
+    private function buildMainTargetData(int $contacted, int $target = User::TARGET_LEADER): array
     {
         return [
-            'target' => User::TARGET_LEADER,
+            'target' => $target,
             'contacted' => $contacted,
-            'remaining' => max(User::TARGET_LEADER - $contacted, 0),
-            'progress' => User::TARGET_LEADER > 0
-                ? min(100, (int) round(($contacted / User::TARGET_LEADER) * 100))
+            'remaining' => max($target - $contacted, 0),
+            'progress' => $target > 0
+                ? min(100, (int) round(($contacted / $target) * 100))
                 : 0,
         ];
     }
 
-    private function buildLeaderStats(int $contacts, int $contacted, int $subLeadersCount, int $progress): array
+    private function buildLeaderStats(int $contacts, int $contacted, int $subLeadersCount, int $progress, int $target = User::TARGET_LEADER): array
     {
         return [
             'contacts' => $contacts,
             'contacted' => $contacted,
             'sub_leaders' => $subLeadersCount,
-            'target' => User::TARGET_LEADER,
+            'target' => $target,
             'progress' => $progress,
         ];
     }
@@ -442,6 +572,8 @@ class DashboardRecapService
             'stats' => [],
             'meta' => [],
             'leaderComparisonData' => collect(),
+            'topmatchComparisonData' => collect(),
+            'kerjaMalamComparisonData' => collect(),
             'subLeaderComparisonData' => collect(),
             'assistantChartData' => [],
             'mainTargetData' => [
