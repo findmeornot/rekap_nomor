@@ -18,6 +18,10 @@ class NumberRequestController extends Controller
     {
         $user = auth()->user();
 
+        if ($user->isSpecialChannel()) {
+            abort(403, 'Fitur permintaan nomor hanya tersedia untuk Marketing Utama Toploker.');
+        }
+
         $requests = NumberRequest::with(['requester:id,name', 'recipient:id,name', 'logs.actor:id,name'])
             ->where(fn ($query) => $query->where('requester_id', $user->id)->orWhere('recipient_id', $user->id))
             ->orderByDesc('created_at')
@@ -38,13 +42,18 @@ class NumberRequestController extends Controller
 
     public function store(Request $request): RedirectResponse|JsonResponse
     {
+        $user = auth()->user();
+
+        // Number requests only apply to Toploker channel
+        if ($user->isSpecialChannel()) {
+            return $this->errorResponse('Fitur permintaan nomor hanya tersedia untuk Marketing Utama Toploker.');
+        }
+
         $validated = $request->validate([
             'recipient_id' => ['required', 'integer', 'exists:users,id'],
             'amount' => ['required', 'integer', 'min:1', 'max:'.User::TARGET_LEADER],
             'message' => ['nullable', 'string', 'max:500'],
         ]);
-
-        $user = auth()->user();
 
         if (Contact::where('leader_id', $user->id)->where('is_contacted', false)->exists()) {
             return $this->errorResponse('Hanya bisa meminta nomor apabila semua nomor tim sendiri sudah ditangani.');
