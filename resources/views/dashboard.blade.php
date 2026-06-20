@@ -68,24 +68,26 @@
                 </div>
 
                 @if ($user->isSpecialChannel())
-                    <div class="panel fade-in-up">
-                        <h3 class="section-title">Grafik Harian Marketing Utama</h3>
-                        <p class="section-subtitle">Jumlah kontak yang sudah <strong>kamu</strong> hubungi per hari selama 7 hari terakhir, dengan garis target harian.</p>
-                        <div class="mt-4">
-                            <canvas id="mainDailyChart" width="800" height="320"></canvas>
+                    <div class="grid gap-6 lg:grid-cols-2">
+                        <div class="panel fade-in-up">
+                            <h3 class="section-title">Grafik Harian Marketing Utama</h3>
+                            <p class="section-subtitle">Jumlah kontak yang sudah <strong>kamu</strong> hubungi per hari selama 7 hari terakhir, dengan garis target harian.</p>
+                            <div class="mt-4">
+                                <canvas id="mainDailyChart" width="800" height="320"></canvas>
+                            </div>
+                            <div class="mt-4 space-y-2 text-sm text-slate-700">
+                                <p>Total nomor yang diinput asisten toploker: <strong>{{ $stats['contacts'] }}</strong></p>
+                                <p>Sudah kamu hubungi: <strong>{{ $mainTargetData['contacted'] }}</strong></p>
+                                <p>Sisa target: <strong>{{ $mainTargetData['remaining'] }}</strong></p>
+                            </div>
                         </div>
-                        <div class="mt-4 space-y-2 text-sm text-slate-700">
-                            <p>Total nomor yang diinput asisten toploker: <strong>{{ $stats['contacts'] }}</strong></p>
-                            <p>Sudah kamu hubungi: <strong>{{ $mainTargetData['contacted'] }}</strong></p>
-                            <p>Sisa target: <strong>{{ $mainTargetData['remaining'] }}</strong></p>
-                        </div>
-                    </div>
 
-                    <div class="panel fade-in-up">
-                        <h3 class="section-title">Progres Target Sesama Marketing ({{ $user->marketingChannelLabel() }})</h3>
-                        <p class="section-subtitle">Jumlah nomor yang dihubungi <strong>hari ini</strong> oleh masing-masing marketing utama channel {{ $user->marketingChannelLabel() }}, dibandingkan target harian {{ $user->getDailyTarget() }} nomor.</p>
-                        <div class="mt-4" id="assistantProgressContainer">
-                            <canvas id="assistantProgressChart" width="800" height="320"></canvas>
+                        <div class="panel fade-in-up">
+                            <h3 class="section-title">Progres Target Sesama Marketing ({{ $user->marketingChannelLabel() }})</h3>
+                            <p class="section-subtitle">Jumlah nomor yang dihubungi <strong>hari ini</strong> oleh masing-masing marketing utama channel {{ $user->marketingChannelLabel() }}, dibandingkan target harian {{ $user->getDailyTarget() }} nomor.</p>
+                            <div class="mt-4" id="assistantProgressContainer">
+                                <canvas id="assistantProgressChart" width="800" height="320"></canvas>
+                            </div>
                         </div>
                     </div>
                 @else
