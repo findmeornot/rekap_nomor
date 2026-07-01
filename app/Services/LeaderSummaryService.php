@@ -45,6 +45,7 @@ class LeaderSummaryService
     private function queryTodayContacted(): \Illuminate\Support\Collection
     {
         return Contact::query()
+            ->where('period_key', Contact::activePeriodKey())
             ->whereNotNull('contacted_by_leader_id')
             ->where('is_contacted', true)
             ->whereDate('status_updated_at', now()->toDateString())
@@ -57,6 +58,7 @@ class LeaderSummaryService
     private function queryMonthlyContacted(): \Illuminate\Support\Collection
     {
         return Contact::query()
+            ->where('period_key', Contact::activePeriodKey())
             ->whereNotNull('contacted_by_leader_id')
             ->where('is_contacted', true)
             ->whereYear('status_updated_at', now()->year)
@@ -74,6 +76,7 @@ class LeaderSummaryService
     private function queryLatestInput(array $filters, array $uiFilters): \Illuminate\Support\Collection
     {
         $query = Contact::query();
+        $query->where('period_key', Contact::activePeriodKey());
         ContactFilter::applyDateFilter($query, $filters);
         ContactFilter::applyListFilters($query, $uiFilters);
 

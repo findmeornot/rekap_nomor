@@ -38,8 +38,9 @@ class ContactImportService
     public function importRows(array $rows, array $context): array
     {
         $periodKey = $context['period_key'] ?? Contact::activePeriodKey();
+        // Duplicate check: only look at the contacts table (active contacts for the current month).
+        // contact_histories are never checked — archived phone numbers are always re-importable.
         $existingNormalized = Contact::query()
-            ->where('period_key', $periodKey)
             ->whereNotNull('normalized_phone')
             ->pluck('normalized_phone')
             ->flip();

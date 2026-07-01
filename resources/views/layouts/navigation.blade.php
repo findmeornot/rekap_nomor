@@ -24,6 +24,12 @@
             'icon' => 'list',
         ];
         $moduleItems[] = [
+            'label' => 'History',
+            'href' => route('superadmin.history.index'),
+            'active' => request()->routeIs('superadmin.history.*'),
+            'icon' => 'history',
+        ];
+        $moduleItems[] = [
             'label' => 'Import Kontak',
             'href' => route('superadmin.import'),
             'active' => request()->routeIs('superadmin.import*'),
@@ -37,6 +43,12 @@
             'href' => route('leader.contacts.index'),
             'active' => request()->routeIs('leader.contacts.*'),
             'icon' => 'list',
+        ];
+        $moduleItems[] = [
+            'label' => 'History',
+            'href' => route('leader.history.index'),
+            'active' => request()->routeIs('leader.history.*'),
+            'icon' => 'history',
         ];
         if (!Auth::user()->isSpecialChannel()) {
             $moduleItems[] = [
@@ -52,8 +64,14 @@
         $moduleItems[] = [
             'label' => 'Input Nomor',
             'href' => route('subleader.contacts.index'),
-            'active' => request()->routeIs('subleader.*'),
+            'active' => request()->routeIs('subleader.contacts.*'),
             'icon' => 'phone',
+        ];
+        $moduleItems[] = [
+            'label' => 'History',
+            'href' => route('subleader.history.index'),
+            'active' => request()->routeIs('subleader.history.*'),
+            'icon' => 'history',
         ];
     }
 @endphp
@@ -138,6 +156,22 @@
                         @if ($item['icon'] === 'request')
                             <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M12 5v14M5 12h14" />
+                            </svg>
+                        @endif
+
+                        @if ($item['icon'] === 'history')
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="1 4 1 10 7 10"></polyline>
+                                <path d="M3.51 15a9 9 0 1 0 .49-4.5"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        @endif
+
+                        @if ($item['icon'] === 'upload')
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="16 16 12 12 8 16"></polyline>
+                                <line x1="12" y1="12" x2="12" y2="21"></line>
+                                <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
                             </svg>
                         @endif
 

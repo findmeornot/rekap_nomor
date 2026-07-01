@@ -270,6 +270,9 @@ class ContactController extends Controller
 
     private function applyLeaderContactScope(Builder $query, User $user): void
     {
+        // Only show contacts from the current active month
+        $query->where('contacts.period_key', Contact::activePeriodKey());
+
         if ($user->isToploker()) {
             // Toploker: see contacts scoped to their team
             if (! $user->team_id) {
