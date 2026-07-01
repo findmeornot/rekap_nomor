@@ -38,6 +38,8 @@ class ContactImportService
     public function importRows(array $rows, array $context): array
     {
         $periodKey = $context['period_key'] ?? Contact::activePeriodKey();
+        // Duplicate check: scoped to current period.
+        // Old numbers (even if still in contacts table) are allowed for the new month.
         $existingNormalized = Contact::query()
             ->where('period_key', $periodKey)
             ->whereNotNull('normalized_phone')
@@ -70,6 +72,12 @@ class ContactImportService
             $contactName = isset($row['contact_name']) && trim((string) $row['contact_name']) !== ''
                 ? trim((string) $row['contact_name'])
                 : null;
+
+            if (isset($context['imported_by_name'])) {
+                $contactName = $contactName 
+                    ? $contactName . ' (diinput oleh ' . $context['imported_by_name'] . ')'
+                    : 'diinput oleh ' . $context['imported_by_name'];
+            }
 
             Contact::create([
                 'contact_name' => $contactName,

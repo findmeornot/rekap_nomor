@@ -11,6 +11,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
@@ -157,10 +158,11 @@ class UserManagementController extends Controller
         }
 
         $summary = $contactImportService->importRows($rows, [
-            'team_id'       => $validated['team_id'],
-            'input_by'      => (int) auth()->id(),
-            'sub_leader_id' => $validated['sub_leader_id'] ?? null,
-            'leader_id'     => $validated['leader_id'] ?? null,
+            'team_id'          => $validated['team_id'],
+            'input_by'         => (int) Auth::id(),
+            'sub_leader_id'    => $validated['sub_leader_id'] ?? null,
+            'leader_id'        => $validated['leader_id'] ?? null,
+            'imported_by_name' => Auth::user()->name,
         ]);
 
         return back()->with(

@@ -27,6 +27,17 @@
                     </div>
                 </div>
 
+                <div class="stats-grid stagger lg:grid-cols-2">
+                    <div class="stat-card fade-in-up">
+                        <p class="text-sm font-medium text-slate-500">Total Semua Nomor Diinput</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($stats['contacts_total'] ?? 0) }}</p>
+                    </div>
+                    <div class="stat-card fade-in-up">
+                        <p class="text-sm font-medium text-slate-500">Total Nomor Diinput Bulan Ini</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($stats['contacts_this_month'] ?? 0) }}</p>
+                    </div>
+                </div>
+
                 <div class="grid gap-6 lg:grid-cols-2">
                     <div class="panel fade-in-up">
                         <h3 class="section-title">Grafik Harian Asisten Marketing</h3>
@@ -37,19 +48,23 @@
                     </div>
                 </div>
             @elseif ($user->isLeader())
-                <div class="stats-grid stagger {{ $user->isSpecialChannel() ? 'lg:grid-cols-2' : '' }}">
+                <div class="stats-grid stagger {{ $user->isSpecialChannel() ? 'lg:grid-cols-3' : 'lg:grid-cols-4' }}">
                     <div class="stat-card fade-in-up">
-                        <p class="text-sm font-medium text-slate-500">Total Nomor</p>
-                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ $stats['contacts'] }}</p>
+                        <p class="text-sm font-medium text-slate-500">Total Nomor Keseluruhan</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($stats['contacts'] ?? 0) }}</p>
+                    </div>
+                    <div class="stat-card fade-in-up">
+                        <p class="text-sm font-medium text-slate-500">Total Nomor Bulan Ini</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($stats['contacts_this_month'] ?? 0) }}</p>
                     </div>
                     <div class="stat-card fade-in-up">
                         <p class="text-sm font-medium text-slate-500">Total Sudah Dihubungi</p>
-                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ $stats['contacted'] }}</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($stats['contacted'] ?? 0) }}</p>
                     </div>
                     @if (!$user->isSpecialChannel())
                         <div class="stat-card fade-in-up">
                             <p class="text-sm font-medium text-slate-500">Total Asisten Marketing</p>
-                            <p class="mt-2 text-3xl font-bold text-slate-900">{{ $stats['sub_leaders'] }}</p>
+                            <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($stats['sub_leaders'] ?? 0) }}</p>
                         </div>
                     @endif
                 </div>
@@ -147,14 +162,24 @@
                         <h3 class="section-title">Ringkasan Sistem</h3>
                         <div class="mt-4 space-y-2 text-sm text-slate-700">
                             <p>
-                                Marketing Utama teraktif:
+                                Marketing Utama Toploker teraktif:
                                 <strong>{{ $meta['top_leader']?->name ?? '-' }}</strong>
-                                ({{ $meta['top_leader']?->contacts_handled_count ?? 0 }} nomor)
+                                ({{ number_format($meta['top_leader']?->contacts_handled_count ?? 0) }} nomor)
                             </p>
                             <p>
-                                Sub leader teraktif:
+                                Marketing Utama Topmatch teraktif:
+                                <strong>{{ $meta['top_topmatch']?->name ?? '-' }}</strong>
+                                ({{ number_format($meta['top_topmatch']?->contacts_handled_count ?? 0) }} nomor)
+                            </p>
+                            <p>
+                                Marketing Utama Kerja Malam teraktif:
+                                <strong>{{ $meta['top_kerja_malam']?->name ?? '-' }}</strong>
+                                ({{ number_format($meta['top_kerja_malam']?->contacts_handled_count ?? 0) }} nomor)
+                            </p>
+                            <p>
+                                Asisten Marketing teraktif:
                                 <strong>{{ $meta['top_sub_leader']?->name ?? '-' }}</strong>
-                                ({{ $meta['top_sub_leader']?->contacts_entered_count ?? 0 }} nomor)
+                                ({{ number_format($meta['top_sub_leader']?->contacts_entered_count ?? 0) }} nomor)
                             </p>
                         </div>
                     </div>
