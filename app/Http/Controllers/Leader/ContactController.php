@@ -53,7 +53,7 @@ class ContactController extends Controller
         }
 
         $contactsQuery = $this->scopedContacts($user)
-            ->with('subLeader:id,name')
+            ->with(['subLeader:id,name', 'inputBy:id,name,role'])
             ->latest();
         ContactFilter::applyDateFilter($contactsQuery, $filters);
 

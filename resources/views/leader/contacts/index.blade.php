@@ -187,7 +187,15 @@
                                 <tr data-contact-id="{{ $contact->id }}" data-phone="{{ $contact->phone }}">
                                     <td>{{ $contact->contact_name ?? '-' }}</td>
                                     <td class="font-medium">{{ $contact->phone }}</td>
-                                    <td>{{ $contact->subLeader?->name ?? '-' }}</td>
+                                    <td>
+                                        @if ($contact->subLeader)
+                                            {{ $contact->subLeader->name }}
+                                        @elseif ($contact->inputBy && $contact->inputBy->role === \App\Models\User::ROLE_SUPERADMIN)
+                                            {{ $contact->inputBy->name }}
+                                        @else
+                                            -
+                                        @endif
+                                    </td>
                                     <td>
                                         <span class="contact-status-label">{{ $statusLabelText }}</span>
                                     </td>
