@@ -81,6 +81,7 @@ class DashboardRecapService
 
         $contacts = (clone $teamContacts)->count();
         $contacted = (clone $teamContacts)->where('is_contacted', true)->count();
+        $contactsThisMonth = (clone $teamContacts)->where('period_key', Contact::activePeriodKey())->count();
 
         $personalHandled = (clone $teamContacts)
             ->where('is_contacted', true)
@@ -106,7 +107,7 @@ class DashboardRecapService
         })->all();
 
         $mainTargetData = $this->buildMainTargetData($personalHandled, $dailyTarget);
-        $stats = $this->buildLeaderStats($contacts, $contacted, $assistantSubLeaders->count(), $mainTargetData['progress'], $dailyTarget);
+        $stats = $this->buildLeaderStats($contacts, $contacted, $assistantSubLeaders->count(), $mainTargetData['progress'], $dailyTarget, $contactsThisMonth);
 
         $dateLabels = $this->buildDateLabels(7);
         $mainDailyData = $this->pluckDailyCounts(
@@ -147,6 +148,9 @@ class DashboardRecapService
     {
         // Total contacts visible (all contacts entered by any sub-leader)
         $contacts = Contact::whereNotNull('sub_leader_id')->count();
+        $contactsThisMonth = Contact::whereNotNull('sub_leader_id')
+            ->where('period_key', Contact::activePeriodKey())
+            ->count();
 
         // Total contacted in this channel
         $contacted = ContactChannelHistory::where('marketing_channel', $channel)
@@ -161,7 +165,7 @@ class DashboardRecapService
             ->count();
 
         $mainTargetData = $this->buildMainTargetData($personalHandled, $dailyTarget);
-        $stats = $this->buildLeaderStats($contacts, $contacted, 0, $mainTargetData['progress'], $dailyTarget);
+        $stats = $this->buildLeaderStats($contacts, $contacted, 0, $mainTargetData['progress'], $dailyTarget, $contactsThisMonth);
 
         $dateLabels = $this->buildDateLabels(7);
 
@@ -212,13 +216,19 @@ class DashboardRecapService
 
     private function getSubLeaderDashboardData(User $user): array
     {
-        $contacts = Contact::where('sub_leader_id', $user->id)->count();
+        $periodKey = Contact::activePeriodKey();
+        $contactsTotal = Contact::where('sub_leader_id', $user->id)->count();
+        $contactsThisMonth = Contact::where('sub_leader_id', $user->id)
+            ->where('period_key', $periodKey)
+            ->count();
 
         $stats = [
-            'contacts' => $contacts,
-            'target' => User::TARGET_SUB_LEADER,
-            'progress' => User::TARGET_SUB_LEADER > 0
-                ? min(100, (int) round(($contacts / User::TARGET_SUB_LEADER) * 100))
+            'contacts'            => $contactsThisMonth,
+            'contacts_total'      => $contactsTotal,
+            'contacts_this_month' => $contactsThisMonth,
+            'target'              => User::TARGET_SUB_LEADER,
+            'progress'            => User::TARGET_SUB_LEADER > 0
+                ? min(100, (int) round(($contactsThisMonth / User::TARGET_SUB_LEADER) * 100))
                 : 0,
         ];
 
@@ -258,8 +268,33 @@ class DashboardRecapService
 
     private function buildSuperAdminMeta(): array
     {
+        // Toploker Leader
         $topLeader = User::where('role', User::ROLE_LEADER)
-            ->withCount('contactsHandled')
+            ->where(function ($q) {
+                $q->whereNull('marketing_channel')
+                  ->orWhere('marketing_channel', User::MARKETING_CHANNEL_TOPLOKER);
+            })
+            ->withCount(['contactsHandled as contacts_handled_count' => function ($query) {
+                $query->where('is_contacted', true);
+            }])
+            ->orderByDesc('contacts_handled_count')
+            ->first();
+
+        // Topmatch Leader
+        $topTopmatch = User::where('role', User::ROLE_LEADER)
+            ->where('marketing_channel', User::MARKETING_CHANNEL_TOPMATCH)
+            ->withCount(['channelHistories as contacts_handled_count' => function ($query) {
+                $query->where('is_contacted', true);
+            }])
+            ->orderByDesc('contacts_handled_count')
+            ->first();
+
+        // Kerja Malam Leader
+        $topKerjaMalam = User::where('role', User::ROLE_LEADER)
+            ->where('marketing_channel', User::MARKETING_CHANNEL_KERJA_MALAM)
+            ->withCount(['channelHistories as contacts_handled_count' => function ($query) {
+                $query->where('is_contacted', true);
+            }])
             ->orderByDesc('contacts_handled_count')
             ->first();
 
@@ -273,6 +308,8 @@ class DashboardRecapService
                 ->whereNull('leader_id')
                 ->count(),
             'top_leader' => $topLeader,
+            'top_topmatch' => $topTopmatch,
+            'top_kerja_malam' => $topKerjaMalam,
             'top_sub_leader' => $topSubLeader,
         ];
     }
@@ -493,14 +530,15 @@ class DashboardRecapService
         ];
     }
 
-    private function buildLeaderStats(int $contacts, int $contacted, int $subLeadersCount, int $progress, int $target = User::TARGET_LEADER): array
+    private function buildLeaderStats(int $contacts, int $contacted, int $subLeadersCount, int $progress, int $target = User::TARGET_LEADER, int $contactsThisMonth = 0): array
     {
         return [
-            'contacts' => $contacts,
-            'contacted' => $contacted,
-            'sub_leaders' => $subLeadersCount,
-            'target' => $target,
-            'progress' => $progress,
+            'contacts'            => $contacts,
+            'contacts_this_month' => $contactsThisMonth,
+            'contacted'           => $contacted,
+            'sub_leaders'         => $subLeadersCount,
+            'target'              => $target,
+            'progress'            => $progress,
         ];
     }
 

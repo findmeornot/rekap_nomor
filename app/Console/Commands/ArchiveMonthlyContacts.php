@@ -31,16 +31,21 @@ class ArchiveMonthlyContacts extends Command
         $dryRun = (bool) $this->option('dry-run');
 
         // Determine which period we are archiving.
-        // When run on the 1st day of the new month, we archive the *previous* month.
+        $currentPeriod = Contact::activePeriodKey();
         $periodOverride = $this->option('period');
-        $archivePeriod  = $periodOverride
-            ? (string) $periodOverride
-            : now()->subMonth()->format('Y-m');
 
-        $totalContacts = Contact::count();
+        $query = Contact::query();
+        if ($periodOverride) {
+            $query->where('period_key', $periodOverride);
+            $this->info("Archive target : period {$periodOverride}");
+        } else {
+            $query->where('period_key', '<', $currentPeriod);
+            $this->info("Archive target : periods older than {$currentPeriod}");
+        }
 
-        $this->info("Archive period : {$archivePeriod}");
-        $this->info("Active contacts: {$totalContacts}");
+        $totalContacts = (clone $query)->count();
+
+        $this->info("Contacts to archive: {$totalContacts}");
 
         if ($dryRun) {
             $this->comment('[Dry-run] No changes made.');
@@ -48,19 +53,19 @@ class ArchiveMonthlyContacts extends Command
         }
 
         if ($totalContacts === 0) {
-            $this->info('No active contacts to archive. Exiting.');
+            $this->info('No old contacts to archive. Exiting.');
             return self::SUCCESS;
         }
 
         try {
-            DB::transaction(function () use ($archivePeriod, $totalContacts): void {
+            DB::transaction(function () use ($query, $totalContacts): void {
                 $this->info('Starting archival...');
                 $archivedCount = 0;
                 $now           = now();
 
-                Contact::query()
+                (clone $query)
                     ->orderBy('id')
-                    ->chunkById(500, function ($contacts) use ($archivePeriod, $now, &$archivedCount): void {
+                    ->chunkById(500, function ($contacts) use ($now, &$archivedCount): void {
                         $rows = [];
 
                         foreach ($contacts as $contact) {
@@ -80,7 +85,7 @@ class ArchiveMonthlyContacts extends Command
                                 'status_updated_at'      => $contact->status_updated_at,
                                 'contacted_at'           => $contact->contacted_at,
                                 'contacted_by_leader_id' => $contact->contacted_by_leader_id,
-                                'archive_period'         => $archivePeriod,
+                                'archive_period'         => $contact->period_key, // Dynamically use the contact's period!
                                 'archived_at'            => $now,
                                 'original_created_at'    => $contact->created_at,
                                 'created_at'             => $now,
@@ -93,9 +98,7 @@ class ArchiveMonthlyContacts extends Command
                     });
 
                 // Verify all contacts were archived
-                $archivedInDb = ContactHistory::where('archive_period', $archivePeriod)
-                    ->where('archived_at', '>=', $now)
-                    ->count();
+                $archivedInDb = ContactHistory::where('archived_at', '>=', $now)->count();
 
                 if ($archivedInDb < $totalContacts) {
                     throw new \RuntimeException(
@@ -103,11 +106,11 @@ class ArchiveMonthlyContacts extends Command
                     );
                 }
 
-                // Safe to clear active contacts
-                Contact::query()->delete();
+                // Safe to clear only the archived contacts
+                (clone $query)->delete();
 
-                $this->info("Successfully archived {$archivedCount} contacts for period [{$archivePeriod}].");
-                Log::info("contacts:archive-monthly: archived {$archivedCount} contacts for period {$archivePeriod}.");
+                $this->info("Successfully archived {$archivedCount} old contacts.");
+                Log::info("contacts:archive-monthly: archived {$archivedCount} contacts.");
             });
         } catch (\Throwable $e) {
             $this->error("Archive failed: {$e->getMessage()}");

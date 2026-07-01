@@ -64,9 +64,10 @@ class ContactController extends Controller
         }
 
         $periodKey = Contact::activePeriodKey();
-        // Duplicate check: only look at the contacts table (active contacts).
-        // contact_histories are never checked — archived phone numbers are always re-importable.
+        // Duplicate check: scoped to current period.
+        // Old numbers (even if still in contacts table) are allowed for the new month.
         $existingNormalized = Contact::query()
+            ->where('period_key', $periodKey)
             ->whereIn('normalized_phone', $phones)
             ->pluck('normalized_phone')
             ->flip();

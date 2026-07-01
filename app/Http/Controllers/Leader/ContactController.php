@@ -71,14 +71,7 @@ class ContactController extends Controller
         $perPage = (int) $uiFilters['per_page'];
 
         // --- Statistics ---
-        $totalContactsCount       = $this->scopedContacts($user)->count();
-        $totalContactedCount      = $this->getChannelContactedCount($user, $channel);
-        $contactedThisMonthCount  = $this->getChannelContactedThisMonth($user, $channel);
         $monthlyContactedData     = $this->getMonthlyContactedData($user, $channel);
-
-        $todayContactedCount = $this->getTodayContactedCount($user, $channel);
-        $target   = $user->getDailyTarget();
-        $progress = $target > 0 ? min(100, (int) round(($todayContactedCount / $target) * 100)) : 0;
 
         // --- Channel-specific contacted map for the current page ---
         $contacts        = $contactsQuery->paginate($perPage)->withQueryString();
@@ -91,13 +84,7 @@ class ContactController extends Controller
             'filters'                => $filters,
             'uiFilters'              => $uiFilters,
             'contacts'               => $contacts,
-            'totalContactsCount'     => $totalContactsCount,
-            'totalContactedCount'    => $totalContactedCount,
-            'contactedThisMonthCount' => $contactedThisMonthCount,
             'monthlyContactedData'   => $monthlyContactedData,
-            'target'                 => $target,
-            'progress'               => $progress,
-            'todayContactedCount'    => $todayContactedCount,
             'channelContactedMap'    => $channelContactedMap,
             'channelContactedDateMap'=> $channelContactedDateMap,
             'isSpecialChannel'       => $user->isSpecialChannel(),
