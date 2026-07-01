@@ -258,7 +258,15 @@
                             @forelse ($contacts as $contact)
                                 <tr>
                                     <td>{{ $contact->leader?->name ?? '-' }}</td>
-                                    <td>{{ $contact->subLeader?->name ?? '-' }}</td>
+                                    <td>
+                                        @if ($contact->subLeader)
+                                            {{ $contact->subLeader->name }}
+                                        @elseif ($contact->inputBy && $contact->inputBy->role === \App\Models\User::ROLE_SUPERADMIN)
+                                            {{ $contact->inputBy->name }}
+                                        @else
+                                            -
+                                        @endif
+                                    </td>
                                     <td>{{ $contact->contact_name ?? '-' }}</td>
                                     <td class="font-medium">{{ $contact->phone }}</td>
                                     <td>

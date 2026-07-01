@@ -73,11 +73,7 @@ class ContactImportService
                 ? trim((string) $row['contact_name'])
                 : null;
 
-            if (isset($context['imported_by_name'])) {
-                $contactName = $contactName 
-                    ? $contactName . ' (diinput oleh ' . $context['imported_by_name'] . ')'
-                    : 'diinput oleh ' . $context['imported_by_name'];
-            }
+
 
             Contact::create([
                 'contact_name' => $contactName,
@@ -151,11 +147,11 @@ class ContactImportService
         $nameIndex = null;
 
         foreach ($header as $index => $column) {
-            if (in_array($column, ['phone', 'nomor', 'no hp', 'nohp', 'number'], true)) {
+            if (in_array($column, ['phone', 'nomor', 'no hp', 'nohp', 'number', 'no_telp', 'notelp', 'telepon'], true)) {
                 $phoneIndex = $index;
             }
 
-            if (in_array($column, ['name', 'nama', 'contact_name', 'kontak'], true)) {
+            if (in_array($column, ['name', 'nama', 'contact_name', 'kontak', 'nama_perusahaan', 'nama perusahaan'], true)) {
                 $nameIndex = $index;
             }
         }
@@ -169,7 +165,7 @@ class ContactImportService
             throw new \RuntimeException(
                 "Kolom nomor telepon tidak ditemukan. " .
                 "Kolom yang ditemukan di file: {$foundDisplay}. " .
-                "Kolom yang dibutuhkan (salah satu): phone, nomor, no hp, nohp, atau number."
+                "Kolom yang dibutuhkan (salah satu): phone, nomor, no hp, no_telp, atau number."
             );
         }
 
