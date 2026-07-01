@@ -143,6 +143,11 @@ class User extends Authenticatable
         return $this->hasMany(Contact::class, 'contacted_by_leader_id');
     }
 
+    public function channelHistories(): HasMany
+    {
+        return $this->hasMany(ContactChannelHistory::class, 'marketing_user_id');
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->role === self::ROLE_SUPERADMIN;

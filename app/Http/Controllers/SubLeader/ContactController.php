@@ -15,12 +15,17 @@ class ContactController extends Controller
 {
     public function index(): View
     {
+        /** @var User $subLeader */
         $subLeader = auth()->user();
-        $contactsCount = Contact::where('sub_leader_id', $subLeader->id)->count();
+        $periodKey = Contact::activePeriodKey();
+        $contactsCount = Contact::where('sub_leader_id', $subLeader->id)
+            ->where('period_key', $periodKey)
+            ->count();
         $target = $subLeader->TARGET_SUB_LEADER;
 
         return view('subleader.contacts.index', [
             'contacts' => Contact::where('sub_leader_id', auth()->id())
+                ->where('period_key', $periodKey)
                 ->latest()
                 ->paginate(20),
             'contactsCount' => $contactsCount,
@@ -59,6 +64,8 @@ class ContactController extends Controller
         }
 
         $periodKey = Contact::activePeriodKey();
+        // Duplicate check: scoped to current period.
+        // Old numbers (even if still in contacts table) are allowed for the new month.
         $existingNormalized = Contact::query()
             ->where('period_key', $periodKey)
             ->whereIn('normalized_phone', $phones)

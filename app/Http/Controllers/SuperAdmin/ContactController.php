@@ -40,7 +40,8 @@ class ContactController extends Controller
             : $leaders;
 
         $contactsQuery = Contact::query()
-            ->with(['leader:id,name', 'subLeader:id,name'])
+            ->with(['leader:id,name', 'subLeader:id,name', 'inputBy:id,name,role'])
+            ->where('period_key', Contact::activePeriodKey())
             ->latest();
         ContactFilter::applyDateFilter($contactsQuery, $filters);
         ContactFilter::applyListFilters($contactsQuery, $uiFilters);

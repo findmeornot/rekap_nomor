@@ -38,6 +38,8 @@ class ContactImportService
     public function importRows(array $rows, array $context): array
     {
         $periodKey = $context['period_key'] ?? Contact::activePeriodKey();
+        // Duplicate check: scoped to current period.
+        // Old numbers (even if still in contacts table) are allowed for the new month.
         $existingNormalized = Contact::query()
             ->where('period_key', $periodKey)
             ->whereNotNull('normalized_phone')
@@ -70,6 +72,8 @@ class ContactImportService
             $contactName = isset($row['contact_name']) && trim((string) $row['contact_name']) !== ''
                 ? trim((string) $row['contact_name'])
                 : null;
+
+
 
             Contact::create([
                 'contact_name' => $contactName,
@@ -143,11 +147,11 @@ class ContactImportService
         $nameIndex = null;
 
         foreach ($header as $index => $column) {
-            if (in_array($column, ['phone', 'nomor', 'no hp', 'nohp', 'number'], true)) {
+            if (in_array($column, ['phone', 'nomor', 'no hp', 'nohp', 'number', 'no_telp', 'notelp', 'telepon'], true)) {
                 $phoneIndex = $index;
             }
 
-            if (in_array($column, ['name', 'nama', 'contact_name', 'kontak'], true)) {
+            if (in_array($column, ['name', 'nama', 'contact_name', 'kontak', 'nama_perusahaan', 'nama perusahaan'], true)) {
                 $nameIndex = $index;
             }
         }
@@ -161,7 +165,7 @@ class ContactImportService
             throw new \RuntimeException(
                 "Kolom nomor telepon tidak ditemukan. " .
                 "Kolom yang ditemukan di file: {$foundDisplay}. " .
-                "Kolom yang dibutuhkan (salah satu): phone, nomor, no hp, nohp, atau number."
+                "Kolom yang dibutuhkan (salah satu): phone, nomor, no hp, no_telp, atau number."
             );
         }
 
