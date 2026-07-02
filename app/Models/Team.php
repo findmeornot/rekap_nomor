@@ -22,8 +22,8 @@ class Team extends Model
         return $this->members()->where('role', User::ROLE_LEADER);
     }
 
-    public function subLeaders(): HasMany
+    public function subLeaders(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
     {
-        return $this->members()->where('role', User::ROLE_SUB_LEADER);
+        return $this->belongsToMany(User::class, 'team_user')->where('role', User::ROLE_SUB_LEADER);
     }
 }

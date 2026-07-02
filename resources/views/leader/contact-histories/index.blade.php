@@ -26,7 +26,7 @@
         <div class="page-wrap space-y-6">
 
             {{-- Filter Panel --}}
-            <div class="panel fade-in-up">
+            <div class="panel fade-in-up relative z-20">
                 <div>
                     <h3 class="section-title">Filter History</h3>
                     <p class="section-subtitle">Cari berdasarkan nama, nomor, atau periode arsip.</p>

@@ -12,7 +12,7 @@
         <div class="page-wrap space-y-6">
 
             {{-- Filter Panel --}}
-            <div class="panel fade-in-up">
+            <div class="panel fade-in-up relative z-20">
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h3 class="section-title">Filter History</h3>
