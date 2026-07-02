@@ -128,6 +128,11 @@ class User extends Authenticatable
         return $this->belongsTo(Team::class, 'team_id');
     }
 
+    public function teams(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(Team::class, 'team_user')->withTimestamps();
+    }
+
     public function contactsEntered(): HasMany
     {
         return $this->hasMany(Contact::class, 'sub_leader_id');

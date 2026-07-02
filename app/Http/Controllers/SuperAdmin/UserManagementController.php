@@ -44,7 +44,7 @@ class UserManagementController extends Controller
             'leadersTopmatch'   => $leadersTopmatch,          // Topmatch marketing utama
             'leadersKerjaMalam' => $leadersKerjaMalam,        // Kerja Malam marketing utama
             'subLeaders'        => User::where('role', User::ROLE_SUB_LEADER)
-                ->with('leader:id,name')
+                ->with(['leader:id,name', 'teams'])
                 ->orderBy('name')
                 ->get(),
             'teams' => Schema::hasTable('teams')
@@ -105,17 +105,20 @@ class UserManagementController extends Controller
             'name'    => ['required', 'string', 'max:255'],
             'email'   => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:8'],
-            'team_id' => ['required', Rule::exists('teams', 'id')],
+            'team_ids' => ['required', 'array'],
+            'team_ids.*' => [Rule::exists('teams', 'id')],
         ]);
 
-        User::create([
+        $user = User::create([
             'name'              => $validated['name'],
             'email'             => $validated['email'],
             'password'          => bcrypt($validated['password']),
             'role'              => User::ROLE_SUB_LEADER,
-            'team_id'           => $validated['team_id'],
+            'team_id'           => $validated['team_ids'][0] ?? null,
             'marketing_channel' => User::MARKETING_CHANNEL_TOPLOKER,
         ]);
+
+        $user->teams()->sync($validated['team_ids']);
 
         return back()->with('success', 'Asisten Marketing berhasil dibuat.');
     }
@@ -124,9 +127,16 @@ class UserManagementController extends Controller
     {
         $validated = $request->validate([
             'team_id' => ['nullable', Rule::exists('teams', 'id')],
+            'team_ids' => ['nullable', 'array'],
+            'team_ids.*' => [Rule::exists('teams', 'id')],
         ]);
 
-        $user->update(['team_id' => $validated['team_id']]);
+        if ($request->has('team_ids')) {
+            $user->teams()->sync($validated['team_ids'] ?? []);
+            $user->update(['team_id' => $validated['team_ids'][0] ?? null]);
+        } else {
+            $user->update(['team_id' => $validated['team_id']]);
+        }
 
         return back()->with('success', 'Tim berhasil diubah.');
     }

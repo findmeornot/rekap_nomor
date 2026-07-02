@@ -72,7 +72,7 @@ class DashboardRecapService
         }
 
         // --- Toploker (existing behaviour) ---
-        $teamContacts = Contact::query()
+        $teamContacts = $this->getAllContactsQuery()
             ->when(
                 $user->team_id,
                 fn ($query) => $query->where('team_id', $user->team_id),
@@ -92,7 +92,7 @@ class DashboardRecapService
             ->where('role', User::ROLE_SUB_LEADER)
             ->when(
                 $user->team_id,
-                fn ($query) => $query->where('team_id', $user->team_id),
+                fn ($query) => $query->whereHas('teams', fn($q) => $q->where('teams.id', $user->team_id)),
                 fn ($query) => $query->whereRaw('1 = 0')
             )
             ->withCount(['contactsEntered as contacts_entered_count' => fn ($q) => $q->whereDate('created_at', now()->toDateString())])
@@ -147,8 +147,8 @@ class DashboardRecapService
     private function getSpecialChannelLeaderDashboardData(User $user, string $channel, int $dailyTarget): array
     {
         // Total contacts visible (all contacts entered by any sub-leader)
-        $contacts = Contact::whereNotNull('sub_leader_id')->count();
-        $contactsThisMonth = Contact::whereNotNull('sub_leader_id')
+        $contacts = $this->getAllContactsQuery()->whereNotNull('sub_leader_id')->count();
+        $contactsThisMonth = $this->getAllContactsQuery()->whereNotNull('sub_leader_id')
             ->where('period_key', Contact::activePeriodKey())
             ->count();
 
@@ -217,8 +217,8 @@ class DashboardRecapService
     private function getSubLeaderDashboardData(User $user): array
     {
         $periodKey = Contact::activePeriodKey();
-        $contactsTotal = Contact::where('sub_leader_id', $user->id)->count();
-        $contactsThisMonth = Contact::where('sub_leader_id', $user->id)
+        $contactsTotal = $this->getAllContactsQuery()->where('sub_leader_id', $user->id)->count();
+        $contactsThisMonth = $this->getAllContactsQuery()->where('sub_leader_id', $user->id)
             ->where('period_key', $periodKey)
             ->count();
 
@@ -234,7 +234,7 @@ class DashboardRecapService
 
         $dateLabels = $this->buildDateLabels(7);
         $subLeaderDailyData = $this->pluckDailyCounts(
-            Contact::where('sub_leader_id', $user->id),
+            $this->getAllContactsQuery()->where('sub_leader_id', $user->id),
             'created_at',
             $dateLabels
         );
@@ -254,7 +254,7 @@ class DashboardRecapService
     {
         $leadersCount = User::where('role', User::ROLE_LEADER)->count();
         $subLeadersCount = User::where('role', User::ROLE_SUB_LEADER)->count();
-        $contactsCount = Contact::count();
+        $contactsCount = $this->getAllContactsQuery()->count();
 
         return [
             'leaders' => $leadersCount,
@@ -321,7 +321,7 @@ class DashboardRecapService
                 $q->whereNull('users.marketing_channel')
                   ->orWhere('users.marketing_channel', User::MARKETING_CHANNEL_TOPLOKER);
             })
-            ->leftJoin('contacts', function ($join) {
+            ->leftJoinSub($this->getAllContactsQuery(), 'contacts', function ($join) {
                 $join->on('users.id', '=', 'contacts.leader_id')
                     ->orOn('users.id', '=', 'contacts.contacted_by_leader_id');
             })
@@ -403,7 +403,7 @@ class DashboardRecapService
     {
         return User::where('users.role', User::ROLE_SUB_LEADER)
             ->leftJoin('users as leaders', 'users.leader_id', '=', 'leaders.id')
-            ->leftJoin('contacts', 'users.id', '=', 'contacts.sub_leader_id')
+            ->leftJoinSub($this->getAllContactsQuery(), 'contacts', 'users.id', '=', 'contacts.sub_leader_id')
             ->select('users.id', 'users.name', 'leaders.name as leader_name')
             ->selectRaw(
                 'COUNT(DISTINCT CASE WHEN DATE(contacts.created_at) = ? OR DATE(contacts.status_updated_at) = ? OR DATE(contacts.contacted_at) = ? THEN contacts.id END) as total_count',
@@ -438,7 +438,7 @@ class DashboardRecapService
 
         return Team::query()
             ->leftJoin('users', 'teams.id', '=', 'users.team_id')
-            ->leftJoin('contacts', function ($join) use ($year, $month) {
+            ->leftJoinSub($this->getAllContactsQuery(), 'contacts', function ($join) use ($year, $month) {
                 $join->on(function ($query) {
                     $query->on('contacts.leader_id', '=', 'users.id')
                         ->orOn('contacts.sub_leader_id', '=', 'users.id');
@@ -474,7 +474,7 @@ class DashboardRecapService
         $startMonth = now()->subMonths(11)->startOfMonth();
         $endMonth = now()->endOfMonth();
 
-        $contactedRows = Contact::query()
+        $contactedRows = $this->getAllContactsQuery()
             ->where('is_contacted', true)
             ->where(function ($query) {
                 $query->whereNotNull('status_updated_at')
@@ -485,7 +485,7 @@ class DashboardRecapService
             ->groupBy('year', 'month')
             ->get();
 
-        $inputRows = Contact::query()
+        $inputRows = $this->getAllContactsQuery()
             ->whereNotNull('sub_leader_id')
             ->whereBetween('created_at', [$startMonth, $endMonth])
             ->selectRaw('YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as total_count')
@@ -602,6 +602,17 @@ class DashboardRecapService
         [$year, $month] = explode('-', $selectedMonth);
 
         return [(int) $year, (int) $month];
+    }
+
+    private function getAllContactsQuery()
+    {
+        $contacts = DB::table('contacts')
+            ->select('id', 'is_contacted', 'created_at', 'status_updated_at', 'contacted_at', 'sub_leader_id', 'leader_id', 'contacted_by_leader_id', 'status_updated_by', 'team_id', 'period_key');
+
+        $histories = DB::table('contact_histories')
+            ->select('id', 'is_contacted', 'original_created_at as created_at', 'status_updated_at', 'contacted_at', 'sub_leader_id', 'leader_id', 'contacted_by_leader_id', 'status_updated_by', 'team_id', 'archive_period as period_key');
+
+        return DB::query()->fromSub($contacts->unionAll($histories), 'contacts');
     }
 
     private function emptyPayload(): array
