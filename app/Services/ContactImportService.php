@@ -32,8 +32,8 @@ class ContactImportService
 
     /**
      * @param array<int, array{contact_name: string|null, phone: string}> $rows
-     * @param array{team_id:int,input_by:int,sub_leader_id:?int,leader_id:?int,period_key?:string} $context
-     * @return array{created:int,skipped_duplicate:int,skipped_invalid:int}
+     * @param array{team_id?:int,team_ids?:array<int>,input_by:int,sub_leader_id:?int,leader_id:?int,period_key?:string} $context
+     * @return array{created:int,skipped_duplicate:int,skipped_invalid:int,distribution:array<int,int>}
      */
     public function importRows(array $rows, array $context): array
     {
@@ -46,10 +46,19 @@ class ContactImportService
             ->pluck('normalized_phone')
             ->flip();
 
+        $teamIds = $context['team_ids'] ?? (isset($context['team_id']) ? [$context['team_id']] : []);
+        if (empty($teamIds)) {
+            throw new \InvalidArgumentException('team_ids or team_id must be provided.');
+        }
+
         $batchPhones = [];
         $created = 0;
         $skippedDuplicate = 0;
         $skippedInvalid = 0;
+        
+        $distributionCount = array_fill_keys($teamIds, 0);
+        $teamIndex = 0;
+        $totalTeams = count($teamIds);
 
         foreach ($rows as $row) {
             $rawPhone = (string) ($row['phone'] ?? '');
@@ -73,14 +82,14 @@ class ContactImportService
                 ? trim((string) $row['contact_name'])
                 : null;
 
-
+            $currentTeamId = $teamIds[$teamIndex % $totalTeams];
 
             Contact::create([
                 'contact_name' => $contactName,
                 'phone' => $normalizedPhone,
                 'normalized_phone' => $normalizedPhone,
                 'period_key' => $periodKey,
-                'team_id' => $context['team_id'],
+                'team_id' => $currentTeamId,
                 'sub_leader_id' => $context['sub_leader_id'] ?? null,
                 'input_by' => $context['input_by'],
                 'leader_id' => $context['leader_id'] ?? null,
@@ -88,6 +97,8 @@ class ContactImportService
             ]);
 
             $batchPhones[$normalizedPhone] = true;
+            $distributionCount[$currentTeamId]++;
+            $teamIndex++;
             $created++;
         }
 
@@ -95,6 +106,7 @@ class ContactImportService
             'created' => $created,
             'skipped_duplicate' => $skippedDuplicate,
             'skipped_invalid' => $skippedInvalid,
+            'distribution' => $distributionCount,
         ];
     }
 

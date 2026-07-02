@@ -77,7 +77,7 @@
 @endphp
 
 <aside
-    class="fixed inset-y-0 left-0 z-40 hidden border-r border-slate-200 bg-white px-3 py-6 transition-all duration-200 lg:flex lg:flex-col"
+    class="fixed inset-y-0 left-0 z-[90] hidden border-r border-slate-200 bg-white px-3 py-6 transition-all duration-200 lg:flex lg:flex-col"
     :class="sidebarCollapsed ? 'lg:w-24' : 'lg:w-72'"
 >
     <div class="mb-4 flex items-center justify-between px-3">
@@ -214,7 +214,7 @@
     </div>
 </aside>
 
-<div x-show="sidebarOpen" x-transition.opacity class="fixed inset-0 z-40 bg-slate-900/50 lg:hidden" @click="sidebarOpen = false"></div>
+<div x-show="sidebarOpen" x-transition.opacity class="fixed inset-0 z-[110] bg-slate-900/50 lg:hidden" @click="sidebarOpen = false"></div>
 
 <aside
     x-show="sidebarOpen"
@@ -224,7 +224,7 @@
     x-transition:leave="transition ease-in duration-150"
     x-transition:leave-start="translate-x-0 opacity-100"
     x-transition:leave-end="-translate-x-full opacity-0"
-    class="fixed inset-y-0 left-0 z-50 w-72 border-r border-slate-200 bg-white px-3 py-6 shadow-2xl lg:hidden"
+    class="fixed inset-y-0 left-0 z-[120] w-72 border-r border-slate-200 bg-white px-3 py-6 shadow-2xl lg:hidden"
 >
     <div class="mb-5 flex items-center justify-between px-3">
         <a href="{{ route('dashboard') }}" class="inline-flex items-center gap-2" @click="sidebarOpen = false">

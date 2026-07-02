@@ -32,7 +32,7 @@
             {{-- ================================================================
                  TAMBAH MARKETING UTAMA  (semua channel)
                  ================================================================ --}}
-            <div class="panel fade-in-up">
+            <div class="panel fade-in-up relative z-[80]">
                 <h3 class="section-title">Tambah Marketing Utama</h3>
                 <p class="section-subtitle">Pilih channel marketing saat membuat akun Marketing Utama baru.</p>
                 <form class="mt-4 space-y-4" method="POST" action="{{ route('superadmin.leaders.store') }}"
@@ -77,7 +77,7 @@
             {{-- ================================================================
                  TAMBAH ASISTEN MARKETING  (Toploker only)
                  ================================================================ --}}
-            <div class="panel fade-in-up">
+            <div class="panel fade-in-up relative z-[70]">
                 <h3 class="section-title">Tambah Asisten Marketing</h3>
                 <p class="section-subtitle">Asisten Marketing hanya tersedia untuk channel <strong>Toploker</strong>.</p>
                 <form class="mt-4 space-y-4" method="POST" action="{{ route('superadmin.sub-leaders.store') }}">
@@ -97,12 +97,64 @@
                         </div>
                         <div>
                             <x-input-label for="sub_team_id" value="Pilih Tim" />
-                            <select id="sub_team_id" name="team_id" class="mt-1 block w-full" required>
-                                <option value="">-- Pilih Tim --</option>
-                                @foreach ($teams as $team)
-                                    <option value="{{ $team->id }}">{{ $team->name }}</option>
-                                @endforeach
-                            </select>
+                            <div x-data="{
+                                open: false,
+                                options: [
+                                    @foreach($teams as $team)
+                                        { value: '{{ (string)$team->id }}', label: '{{ addslashes($team->name) }}' },
+                                    @endforeach
+                                ],
+                                selected: [],
+                                get selectedOptions() {
+                                    return this.options.filter(o => this.selected.includes(o.value));
+                                },
+                                toggleOption(val) {
+                                    if (this.selected.includes(val)) {
+                                        this.selected = this.selected.filter(i => i !== val);
+                                    } else {
+                                        this.selected.push(val);
+                                    }
+                                }
+                            }" class="relative mt-1 w-full" :class="open ? 'z-50' : ''" @click.away="open = false">
+                                
+                                <div class="flex flex-wrap items-center gap-1 min-h-[42px] px-3 py-1.5 border border-slate-300 rounded-md bg-white cursor-pointer w-full text-sm shadow-sm focus-within:border-emerald-500 focus-within:ring-1 focus-within:ring-emerald-500" @click="open = !open">
+                                    <template x-for="option in selectedOptions" :key="option.value">
+                                        <span class="inline-flex items-center gap-1 px-2 py-1 bg-slate-100 text-slate-700 border border-slate-200 rounded text-xs font-medium">
+                                            <span x-text="option.label"></span>
+                                            <button type="button" class="text-slate-400 hover:text-slate-600 focus:outline-none" @click.stop="toggleOption(option.value)">
+                                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                            </button>
+                                        </span>
+                                    </template>
+                                    
+                                    <div x-show="selected.length === 0" class="text-slate-400 py-0.5">-- Pilih Tim --</div>
+                                    
+                                    <div class="ml-auto text-slate-400">
+                                        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                                    </div>
+                                </div>
+                                
+                                <select name="team_ids[]" multiple required class="absolute opacity-0 h-0 w-0 pointer-events-none" tabindex="-1">
+                                    <template x-for="option in options" :key="option.value">
+                                        <option :value="option.value" :selected="selected.includes(option.value)"></option>
+                                    </template>
+                                </select>
+                                
+                                <div x-show="open" 
+                                     x-transition
+                                     class="absolute z-50 w-full mt-1 bg-white border border-slate-300 rounded-md shadow-lg max-h-60 overflow-y-auto" style="display: none;">
+                                    <template x-for="option in options" :key="option.value">
+                                        <div 
+                                            class="px-3 py-2 cursor-pointer hover:bg-slate-50 flex items-center justify-between text-sm"
+                                            :class="selected.includes(option.value) ? 'bg-slate-50 text-slate-900 font-medium' : 'text-slate-700'"
+                                            @click="toggleOption(option.value)"
+                                        >
+                                            <span x-text="option.label"></span>
+                                            <svg x-show="selected.includes(option.value)" class="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <x-primary-button>Simpan Asisten Marketing</x-primary-button>
@@ -112,7 +164,7 @@
             {{-- ================================================================
                  TAMBAH TIM
                  ================================================================ --}}
-            <div class="panel fade-in-up">
+            <div class="panel fade-in-up relative z-[60]">
                 <h3 class="section-title">Tambah Tim</h3>
                 <form class="mt-4 space-y-4" method="POST" action="{{ route('superadmin.teams.store') }}">
                     @csrf
@@ -127,7 +179,7 @@
             {{-- ================================================================
                  DAFTAR MARKETING UTAMA — TOPLOKER
                  ================================================================ --}}
-            <div class="panel fade-in-up">
+            <div class="panel fade-in-up relative z-[50]">
                 <div class="flex items-center gap-3">
                     <span class="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
                         <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
@@ -135,7 +187,7 @@
                     </span>
                     <h3 class="section-title mb-0">Daftar Marketing Utama Toploker</h3>
                 </div>
-                <div class="table-wrap mt-4">
+                <div class="table-wrap mt-4 !overflow-visible">
                     <table class="table-clean">
                         <thead>
                             <tr>
@@ -205,7 +257,7 @@
             {{-- ================================================================
                  DAFTAR MARKETING UTAMA — TOPMATCH
                  ================================================================ --}}
-            <div class="panel fade-in-up">
+            <div class="panel fade-in-up relative z-[40]">
                 <div class="flex items-center gap-3">
                     <span class="inline-flex items-center gap-1.5 rounded-full bg-violet-100 px-3 py-1 text-xs font-semibold text-violet-700">
                         <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
@@ -214,7 +266,7 @@
                     <h3 class="section-title mb-0">Daftar Marketing Utama Topmatch</h3>
                 </div>
                 <p class="mt-1 text-xs text-slate-500">Marketing Utama Topmatch dapat melihat semua nomor. Status hubungi hanya tercatat di channel Topmatch.</p>
-                <div class="table-wrap mt-4">
+                <div class="table-wrap mt-4 !overflow-visible">
                     <table class="table-clean">
                         <thead>
                             <tr>
@@ -268,7 +320,7 @@
             {{-- ================================================================
                  DAFTAR MARKETING UTAMA — KERJA MALAM
                  ================================================================ --}}
-            <div class="panel fade-in-up">
+            <div class="panel fade-in-up relative z-[30]">
                 <div class="flex items-center gap-3">
                     <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
                         <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
@@ -277,7 +329,7 @@
                     <h3 class="section-title mb-0">Daftar Marketing Utama Kerja Malam</h3>
                 </div>
                 <p class="mt-1 text-xs text-slate-500">Marketing Utama Kerja Malam dapat melihat semua nomor. Status hubungi hanya tercatat di channel Kerja Malam.</p>
-                <div class="table-wrap mt-4">
+                <div class="table-wrap mt-4 !overflow-visible">
                     <table class="table-clean">
                         <thead>
                             <tr>
@@ -331,7 +383,7 @@
             {{-- ================================================================
                  DAFTAR ASISTEN MARKETING  (Toploker only)
                  ================================================================ --}}
-            <div class="panel fade-in-up">
+            <div class="panel fade-in-up relative z-[20]">
                 <div class="flex items-center gap-3">
                     <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
                         <svg class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>
@@ -339,7 +391,7 @@
                     </span>
                     <h3 class="section-title mb-0">Daftar Asisten Marketing</h3>
                 </div>
-                <div class="table-wrap mt-4">
+                <div class="table-wrap mt-4 !overflow-visible">
                     <table class="table-clean">
                         <thead>
                             <tr>
@@ -355,20 +407,72 @@
                                 <tr data-user-row="subLeader-{{ $subLeader->id }}">
                                     <td>{{ $subLeader->name }}</td>
                                     <td>{{ $subLeader->email }}</td>
-                                    <td>{{ $subLeader->team?->name ?? '-' }}</td>
                                     <td>
-                                        <form class="flex gap-2" method="POST" action="{{ route('superadmin.users.assign-team', $subLeader) }}">
+                                        @if($subLeader->teams->count() > 0)
+                                            {{ $subLeader->teams->pluck('name')->join(', ') }}
+                                        @else
+                                            {{ $subLeader->team?->name ?? '-' }}
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <form class="flex items-start gap-2" method="POST" action="{{ route('superadmin.users.assign-team', $subLeader) }}">
                                             @csrf
                                             @method('PATCH')
-                                            <select name="team_id" class="text-sm" required>
-                                                <option value="">-- Pilih Tim --</option>
-                                                @foreach ($teams as $team)
-                                                    <option value="{{ $team->id }}" @selected($subLeader->team_id === $team->id)>
-                                                        {{ $team->name }}
-                                                    </option>
-                                                @endforeach
-                                            </select>
-                                            <button class="btn-subtle px-3 py-2 text-xs">Update</button>
+                                            
+                                            <div x-data="{
+                                                open: false,
+                                                options: [
+                                                    @foreach($teams as $team)
+                                                        { value: '{{ (string)$team->id }}', label: '{{ addslashes($team->name) }}' },
+                                                    @endforeach
+                                                ],
+                                                selected: @js($subLeader->teams->count() > 0 ? $subLeader->teams->pluck('id')->map(fn($id) => (string)$id)->toArray() : ($subLeader->team_id ? [(string)$subLeader->team_id] : [])),
+                                                get selectedOptions() {
+                                                    return this.options.filter(o => this.selected.includes(o.value));
+                                                },
+                                                toggleOption(val) {
+                                                    if (this.selected.includes(val)) {
+                                                        this.selected = this.selected.filter(i => i !== val);
+                                                    } else {
+                                                        this.selected.push(val);
+                                                    }
+                                                }
+                                            }" class="relative w-64" :class="open ? 'z-50' : ''" @click.away="open = false">
+                                                
+                                                <div class="flex flex-wrap items-center gap-1 min-h-[36px] px-2 py-1 border border-slate-300 rounded-md bg-white cursor-pointer w-full text-xs shadow-sm" @click="open = !open">
+                                                    <template x-for="option in selectedOptions" :key="option.value">
+                                                        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded font-medium">
+                                                            <span x-text="option.label"></span>
+                                                            <button type="button" class="text-slate-400 hover:text-slate-600 focus:outline-none" @click.stop="toggleOption(option.value)">
+                                                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                            </button>
+                                                        </span>
+                                                    </template>
+                                                    <div x-show="selected.length === 0" class="text-slate-400 py-0.5">-- Pilih Tim --</div>
+                                                </div>
+                                                
+                                                <select name="team_ids[]" multiple required class="absolute opacity-0 h-0 w-0 pointer-events-none" tabindex="-1">
+                                                    <template x-for="option in options" :key="option.value">
+                                                        <option :value="option.value" :selected="selected.includes(option.value)"></option>
+                                                    </template>
+                                                </select>
+                                                
+                                                <div x-show="open" 
+                                                     x-transition
+                                                     class="absolute z-50 w-full mt-1 bg-white border border-slate-300 rounded-md shadow-lg max-h-48 overflow-y-auto" style="display: none;">
+                                                    <template x-for="option in options" :key="option.value">
+                                                        <div 
+                                                            class="px-2 py-1.5 cursor-pointer hover:bg-slate-50 flex items-center justify-between text-xs"
+                                                            :class="selected.includes(option.value) ? 'bg-slate-50 text-slate-900 font-medium' : 'text-slate-700'"
+                                                            @click="toggleOption(option.value)"
+                                                        >
+                                                            <span x-text="option.label"></span>
+                                                            <svg x-show="selected.includes(option.value)" class="h-3 w-3 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                            <button class="btn-subtle px-3 py-2 text-xs shrink-0 h-[36px]">Update</button>
                                         </form>
                                     </td>
                                     <td class="text-right">
@@ -409,9 +513,9 @@
             {{-- ================================================================
                  DAFTAR TIM
                  ================================================================ --}}
-            <div class="panel fade-in-up">
+            <div class="panel fade-in-up relative z-[10]">
                 <h3 class="section-title">Daftar Tim</h3>
-                <div class="table-wrap mt-4">
+                <div class="table-wrap mt-4 !overflow-visible">
                     <table class="table-clean">
                         <thead>
                             <tr>

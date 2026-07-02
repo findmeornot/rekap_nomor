@@ -33,7 +33,7 @@
             @include('layouts.navigation')
 
             <div class="transition-all duration-200" :class="sidebarCollapsed ? 'lg:pl-24' : 'lg:pl-72'">
-                <div class="border-b border-slate-200 bg-white">
+                <div class="relative z-[100] border-b border-slate-200 bg-white">
                     <div class="page-wrap flex h-16 items-center justify-between">
                         <button
                             @click="sidebarOpen = true"
