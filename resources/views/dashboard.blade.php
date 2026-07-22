@@ -27,6 +27,17 @@
                     </div>
                 </div>
 
+                <div class="stats-grid stagger lg:grid-cols-2">
+                    <div class="stat-card fade-in-up">
+                        <p class="text-sm font-medium text-slate-500">Total Semua Nomor Diinput</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($stats['contacts_total'] ?? 0) }}</p>
+                    </div>
+                    <div class="stat-card fade-in-up">
+                        <p class="text-sm font-medium text-slate-500">Total Nomor Diinput Bulan Ini</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($stats['contacts_this_month'] ?? 0) }}</p>
+                    </div>
+                </div>
+
                 <div class="grid gap-6 lg:grid-cols-2">
                     <div class="panel fade-in-up">
                         <h3 class="section-title">Grafik Harian Asisten Marketing</h3>
@@ -37,19 +48,25 @@
                     </div>
                 </div>
             @elseif ($user->isLeader())
-                <div class="stats-grid stagger">
+                <div class="stats-grid stagger {{ $user->isSpecialChannel() ? 'lg:grid-cols-3' : 'lg:grid-cols-4' }}">
                     <div class="stat-card fade-in-up">
-                        <p class="text-sm font-medium text-slate-500">Total Nomor</p>
-                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ $stats['contacts'] }}</p>
+                        <p class="text-sm font-medium text-slate-500">Total Nomor Keseluruhan</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($stats['contacts'] ?? 0) }}</p>
+                    </div>
+                    <div class="stat-card fade-in-up">
+                        <p class="text-sm font-medium text-slate-500">Total Nomor Bulan Ini</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($stats['contacts_this_month'] ?? 0) }}</p>
                     </div>
                     <div class="stat-card fade-in-up">
                         <p class="text-sm font-medium text-slate-500">Total Sudah Dihubungi</p>
-                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ $stats['contacted'] }}</p>
+                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($stats['contacted'] ?? 0) }}</p>
                     </div>
-                    <div class="stat-card fade-in-up">
-                        <p class="text-sm font-medium text-slate-500">Total Asisten Marketing</p>
-                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ $stats['sub_leaders'] }}</p>
-                    </div>
+                    @if (!$user->isSpecialChannel())
+                        <div class="stat-card fade-in-up">
+                            <p class="text-sm font-medium text-slate-500">Total Asisten Marketing</p>
+                            <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($stats['sub_leaders'] ?? 0) }}</p>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="panel fade-in-up">
@@ -59,40 +76,67 @@
                     </p>
                     <div class="mt-5 flex flex-wrap gap-3">
                         <a href="{{ route('leader.contacts.index') }}" class="btn-main">Lihat Rekap Nomor</a>
-                        <a href="{{ route('leader.requests.index') }}" class="btn-subtle">Permintaan Nomor</a>
+                        @if (!$user->isSpecialChannel())
+                            <a href="{{ route('leader.requests.index') }}" class="btn-subtle">Permintaan Nomor</a>
+                        @endif
                     </div>
                 </div>
 
-                <div class="grid gap-6 lg:grid-cols-2">
+                @if ($user->isSpecialChannel())
+                    <div class="grid gap-6 lg:grid-cols-2">
+                        <div class="panel fade-in-up">
+                            <h3 class="section-title">Grafik Harian Marketing Utama</h3>
+                            <p class="section-subtitle">Jumlah kontak yang sudah <strong>kamu</strong> hubungi per hari selama 7 hari terakhir, dengan garis target harian.</p>
+                            <div class="mt-4">
+                                <canvas id="mainDailyChart" width="800" height="320"></canvas>
+                            </div>
+                            <div class="mt-4 space-y-2 text-sm text-slate-700">
+                                <p>Total nomor yang diinput asisten toploker: <strong>{{ $stats['contacts'] }}</strong></p>
+                                <p>Sudah kamu hubungi: <strong>{{ $mainTargetData['contacted'] }}</strong></p>
+                                <p>Sisa target: <strong>{{ $mainTargetData['remaining'] }}</strong></p>
+                            </div>
+                        </div>
+
+                        <div class="panel fade-in-up">
+                            <h3 class="section-title">Progres Target Sesama Marketing ({{ $user->marketingChannelLabel() }})</h3>
+                            <p class="section-subtitle">Jumlah nomor yang dihubungi <strong>hari ini</strong> oleh masing-masing marketing utama channel {{ $user->marketingChannelLabel() }}, dibandingkan target harian {{ $user->getDailyTarget() }} nomor.</p>
+                            <div class="mt-4" id="assistantProgressContainer">
+                                <canvas id="assistantProgressChart" width="800" height="320"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                @else
+                    <div class="grid gap-6 lg:grid-cols-2">
+                        <div class="panel fade-in-up">
+                            <h3 class="section-title">Grafik Harian Marketing Utama</h3>
+                            <p class="section-subtitle">Jumlah kontak yang sudah <strong>kamu</strong> hubungi per hari selama 7 hari terakhir, dengan garis target harian.</p>
+                            <div class="mt-4">
+                                <canvas id="mainDailyChart" width="600" height="320"></canvas>
+                            </div>
+                            <div class="mt-4 space-y-2 text-sm text-slate-700">
+                                <p>Total kontak tim: <strong>{{ $stats['contacts'] }}</strong></p>
+                                <p>Sudah kamu hubungi: <strong>{{ $mainTargetData['contacted'] }}</strong></p>
+                                <p>Sisa target: <strong>{{ $mainTargetData['remaining'] }}</strong></p>
+                            </div>
+                        </div>
+
+                        <div class="panel fade-in-up">
+                            <h3 class="section-title">Grafik Harian Asisten Marketing</h3>
+                            <p class="section-subtitle">Jumlah input nomor tim asisten marketing per hari, dengan garis target harian.</p>
+                            <div class="mt-4">
+                                <canvas id="assistantDailyChart" width="600" height="320"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="panel fade-in-up">
-                        <h3 class="section-title">Grafik Harian Marketing Utama</h3>
-                        <p class="section-subtitle">Jumlah kontak yang sudah <strong>kamu</strong> hubungi per hari selama 7 hari terakhir, dengan garis target harian.</p>
-                        <div class="mt-4">
-                            <canvas id="mainDailyChart" width="600" height="320"></canvas>
-                        </div>
-                        <div class="mt-4 space-y-2 text-sm text-slate-700">
-                            <p>Total kontak tim: <strong>{{ $stats['contacts'] }}</strong></p>
-                            <p>Sudah kamu hubungi: <strong>{{ $mainTargetData['contacted'] }}</strong></p>
-                            <p>Sisa target: <strong>{{ $mainTargetData['remaining'] }}</strong></p>
+                        <h3 class="section-title">Progres Target Per Asisten Marketing</h3>
+                        <p class="section-subtitle">Nomor yang diinput <strong>hari ini</strong> per asisten marketing dibandingkan target harian {{ \App\Models\User::TARGET_SUB_LEADER }} nomor.</p>
+                        <div class="mt-4" id="assistantProgressContainer">
+                            <canvas id="assistantProgressChart" width="800" height="320"></canvas>
                         </div>
                     </div>
-
-                    <div class="panel fade-in-up">
-                        <h3 class="section-title">Grafik Harian Asisten Marketing</h3>
-                        <p class="section-subtitle">Jumlah input nomor tim asisten marketing per hari, dengan garis target harian.</p>
-                        <div class="mt-4">
-                            <canvas id="assistantDailyChart" width="600" height="320"></canvas>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="panel fade-in-up">
-                    <h3 class="section-title">Progres Target Per Asisten Marketing</h3>
-                    <p class="section-subtitle">Nomor yang diinput <strong>hari ini</strong> per asisten marketing dibandingkan target harian {{ \App\Models\User::TARGET_SUB_LEADER }} nomor.</p>
-                    <div class="mt-4" id="assistantProgressContainer">
-                        <canvas id="assistantProgressChart" width="800" height="320"></canvas>
-                    </div>
-                </div>
+                @endif
             @else
                 <div class="stats-grid stagger lg:grid-cols-4">
                     <div class="stat-card fade-in-up">
@@ -118,14 +162,24 @@
                         <h3 class="section-title">Ringkasan Sistem</h3>
                         <div class="mt-4 space-y-2 text-sm text-slate-700">
                             <p>
-                                Marketing Utama teraktif:
+                                Marketing Utama Toploker teraktif:
                                 <strong>{{ $meta['top_leader']?->name ?? '-' }}</strong>
-                                ({{ $meta['top_leader']?->contacts_handled_count ?? 0 }} nomor)
+                                ({{ number_format($meta['top_leader']?->contacts_handled_count ?? 0) }} nomor)
                             </p>
                             <p>
-                                Sub leader teraktif:
+                                Marketing Utama Topmatch teraktif:
+                                <strong>{{ $meta['top_topmatch']?->name ?? '-' }}</strong>
+                                ({{ number_format($meta['top_topmatch']?->contacts_handled_count ?? 0) }} nomor)
+                            </p>
+                            <p>
+                                Marketing Utama Kerja Malam teraktif:
+                                <strong>{{ $meta['top_kerja_malam']?->name ?? '-' }}</strong>
+                                ({{ number_format($meta['top_kerja_malam']?->contacts_handled_count ?? 0) }} nomor)
+                            </p>
+                            <p>
+                                Asisten Marketing teraktif:
                                 <strong>{{ $meta['top_sub_leader']?->name ?? '-' }}</strong>
-                                ({{ $meta['top_sub_leader']?->contacts_entered_count ?? 0 }} nomor)
+                                ({{ number_format($meta['top_sub_leader']?->contacts_entered_count ?? 0) }} nomor)
                             </p>
                         </div>
                     </div>
@@ -142,8 +196,8 @@
                     <div class="panel fade-in-up">
                         <div class="flex items-center justify-between">
                             <div>
-                                <h3 class="section-title">Diagram Perbandingan Antar Marketing Utama</h3>
-                                <p class="section-subtitle">Bandingkan performa leader berdasarkan jumlah nomor yang sudah dihubungi.</p>
+                                <h3 class="section-title">Diagram Perbandingan Antar Marketing Utama (Toploker)</h3>
+                                <p class="section-subtitle">Bandingkan performa leader Toploker berdasarkan jumlah nomor yang sudah dihubungi.</p>
                             </div>
                             <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-2">
                                 @foreach(request()->except('leader_chart_date') as $key => $value)
@@ -157,6 +211,32 @@
                         </div>
                         <div class="mt-4" id="superadminChartContainer">
                             <canvas id="leaderComparisonChart" width="600" height="320"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="panel fade-in-up">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="section-title">Diagram Perbandingan Antar Marketing Utama (Topmatch)</h3>
+                                <p class="section-subtitle">Bandingkan performa leader Topmatch berdasarkan jumlah nomor yang sudah dihubungi.</p>
+                            </div>
+                            <span class="text-sm font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-lg">Tanggal: {{ \Carbon\Carbon::parse($leaderChartDate)->format('d M Y') }}</span>
+                        </div>
+                        <div class="mt-4" id="topmatchChartContainer">
+                            <canvas id="topmatchComparisonChart" width="600" height="320"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="panel fade-in-up">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="section-title">Diagram Perbandingan Antar Marketing Utama (Kerja Malam)</h3>
+                                <p class="section-subtitle">Bandingkan performa leader Kerja Malam berdasarkan jumlah nomor yang sudah dihubungi.</p>
+                            </div>
+                            <span class="text-sm font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-lg">Tanggal: {{ \Carbon\Carbon::parse($leaderChartDate)->format('d M Y') }}</span>
+                        </div>
+                        <div class="mt-4" id="kerjaMalamChartContainer">
+                            <canvas id="kerjaMalamComparisonChart" width="600" height="320"></canvas>
                         </div>
                     </div>
 
@@ -209,6 +289,8 @@
         <script id="superadmin-data" type="application/json">
             {!! json_encode([
                 'leaderData' => $leaderComparisonData ?? [],
+                'topmatchData' => $topmatchComparisonData ?? [],
+                'kerjaMalamData' => $kerjaMalamComparisonData ?? [],
                 'subLeaderData' => $subLeaderComparisonData ?? [],
                 'teamComparisonData' => $teamComparisonData ?? [],
                 'monthlyTotalsData' => $monthlyTotalsData ?? [],
@@ -224,6 +306,8 @@
 
                 const dataStore = JSON.parse(document.getElementById('superadmin-data').textContent);
                 const leaderData = dataStore.leaderData;
+                const topmatchData = dataStore.topmatchData;
+                const kerjaMalamData = dataStore.kerjaMalamData;
                 const subLeaderData = dataStore.subLeaderData;
                 const teamComparisonData = dataStore.teamComparisonData;
                 const monthlyTotalsData = dataStore.monthlyTotalsData;
@@ -404,7 +488,21 @@
                     'leaderComparisonChart',
                     'superadminChartContainer',
                     leaderData,
-                    'Perbandingan Marketing Utama (Sudah Dihubungi) ' + ' (' + leaderMonthDisplay + ')'
+                    'Perbandingan Marketing Utama (Toploker) ' + ' (' + leaderMonthDisplay + ')'
+                );
+
+                renderLeaderComparisonChart(
+                    'topmatchComparisonChart',
+                    'topmatchChartContainer',
+                    topmatchData,
+                    'Perbandingan Marketing Utama (Topmatch) ' + ' (' + leaderMonthDisplay + ')'
+                );
+
+                renderLeaderComparisonChart(
+                    'kerjaMalamComparisonChart',
+                    'kerjaMalamChartContainer',
+                    kerjaMalamData,
+                    'Perbandingan Marketing Utama (Kerja Malam) ' + ' (' + leaderMonthDisplay + ')'
                 );
 
                 renderComparisonChart(
@@ -520,7 +618,8 @@
                 'subLeaderDailyTargetData' => $subLeaderDailyTargetData ?? [],
                 'dailyLabels' => $stats['daily_labels'] ?? [],
                 'assistantChartData' => $assistantChartData ?? [],
-                'assistantTarget' => \App\Models\User::TARGET_SUB_LEADER,
+                'assistantTarget' => $user->isSpecialChannel() ? $user->getDailyTarget() : \App\Models\User::TARGET_SUB_LEADER,
+                'isSpecialChannel' => $user->isSpecialChannel(),
             ]) !!}
         </script>
         <script>
@@ -642,7 +741,9 @@
 
                 if (assistantProgressCanvas && assistantProgressContainer) {
                     if (!assistantChartData.length) {
-                        assistantProgressContainer.innerHTML = '<p class="text-slate-500 text-sm">Belum ada asisten marketing di tim ini.</p>';
+                        assistantProgressContainer.innerHTML = dataStore.isSpecialChannel
+                            ? '<p class="text-slate-500 text-sm">Belum ada data marketing di channel ini.</p>'
+                            : '<p class="text-slate-500 text-sm">Belum ada asisten marketing di tim ini.</p>';
                     } else {
                         new Chart(assistantProgressCanvas, {
                             type: 'bar',
@@ -650,7 +751,7 @@
                                 labels: assistantChartData.map(d => d.label),
                                 datasets: [
                                     {
-                                        label: 'Total Input Nomor',
+                                        label: dataStore.isSpecialChannel ? 'Total Dihubungi' : 'Total Input Nomor',
                                         data: assistantChartData.map(d => d.count),
                                         backgroundColor: assistantChartData.map(d =>
                                             d.count >= assistantTarget

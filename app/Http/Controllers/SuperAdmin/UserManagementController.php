@@ -11,6 +11,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 
@@ -18,13 +19,32 @@ class UserManagementController extends Controller
 {
     public function index(): View
     {
+        // Leaders grouped by marketing channel
+        $leadersToploker = User::where('role', User::ROLE_LEADER)
+            ->where(function ($q) {
+                $q->where('marketing_channel', User::MARKETING_CHANNEL_TOPLOKER)
+                    ->orWhereNull('marketing_channel');
+            })
+            ->withCount('subLeaders')
+            ->orderBy('name')
+            ->get();
+
+        $leadersTopmatch = User::where('role', User::ROLE_LEADER)
+            ->where('marketing_channel', User::MARKETING_CHANNEL_TOPMATCH)
+            ->orderBy('name')
+            ->get();
+
+        $leadersKerjaMalam = User::where('role', User::ROLE_LEADER)
+            ->where('marketing_channel', User::MARKETING_CHANNEL_KERJA_MALAM)
+            ->orderBy('name')
+            ->get();
+
         return view('superadmin.users.index', [
-            'leaders' => User::where('role', User::ROLE_LEADER)
-                ->withCount('subLeaders')
-                ->orderBy('name')
-                ->get(),
-            'subLeaders' => User::where('role', User::ROLE_SUB_LEADER)
-                ->with('leader:id,name')
+            'leaders'           => $leadersToploker,          // Toploker marketing utama
+            'leadersTopmatch'   => $leadersTopmatch,          // Topmatch marketing utama
+            'leadersKerjaMalam' => $leadersKerjaMalam,        // Kerja Malam marketing utama
+            'subLeaders'        => User::where('role', User::ROLE_SUB_LEADER)
+                ->with(['leader:id,name', 'teams'])
                 ->orderBy('name')
                 ->get(),
             'teams' => Schema::hasTable('teams')
@@ -47,39 +67,58 @@ class UserManagementController extends Controller
     public function storeLeader(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'password' => ['required', 'string', 'min:8'],
-            'team_id' => ['required', Rule::exists('teams', 'id')],
+            'name'              => ['required', 'string', 'max:255'],
+            'email'             => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
+            'password'          => ['required', 'string', 'min:8'],
+            'marketing_channel' => ['required', Rule::in(User::allMarketingChannels())],
+            'team_id'           => [
+                // Team is required only for Toploker channel
+                Rule::when(
+                    $request->input('marketing_channel') === User::MARKETING_CHANNEL_TOPLOKER,
+                    ['required', Rule::exists('teams', 'id')],
+                    ['nullable', Rule::exists('teams', 'id')]
+                ),
+            ],
         ]);
 
         User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => bcrypt($validated['password']),
-            'role' => User::ROLE_LEADER,
-            'team_id' => $validated['team_id'],
+            'name'              => $validated['name'],
+            'email'             => $validated['email'],
+            'password'          => bcrypt($validated['password']),
+            'role'              => User::ROLE_LEADER,
+            'team_id'           => $validated['team_id'] ?? null,
+            'marketing_channel' => $validated['marketing_channel'],
         ]);
 
-        return back()->with('success', 'Marketing Utama berhasil dibuat.');
+        $channelLabel = match ($validated['marketing_channel']) {
+            User::MARKETING_CHANNEL_TOPMATCH   => 'Topmatch',
+            User::MARKETING_CHANNEL_KERJA_MALAM => 'Kerja Malam',
+            default                             => 'Toploker',
+        };
+
+        return back()->with('success', "Marketing Utama {$channelLabel} berhasil dibuat.");
     }
 
     public function storeSubLeader(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
+            'name'    => ['required', 'string', 'max:255'],
+            'email'   => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
             'password' => ['required', 'string', 'min:8'],
-            'team_id' => ['required', Rule::exists('teams', 'id')],
+            'team_ids' => ['required', 'array'],
+            'team_ids.*' => [Rule::exists('teams', 'id')],
         ]);
 
-        User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => bcrypt($validated['password']),
-            'role' => User::ROLE_SUB_LEADER,
-            'team_id' => $validated['team_id'],
+        $user = User::create([
+            'name'              => $validated['name'],
+            'email'             => $validated['email'],
+            'password'          => bcrypt($validated['password']),
+            'role'              => User::ROLE_SUB_LEADER,
+            'team_id'           => $validated['team_ids'][0] ?? null,
+            'marketing_channel' => User::MARKETING_CHANNEL_TOPLOKER,
         ]);
+
+        $user->teams()->sync($validated['team_ids']);
 
         return back()->with('success', 'Asisten Marketing berhasil dibuat.');
     }
@@ -88,9 +127,16 @@ class UserManagementController extends Controller
     {
         $validated = $request->validate([
             'team_id' => ['nullable', Rule::exists('teams', 'id')],
+            'team_ids' => ['nullable', 'array'],
+            'team_ids.*' => [Rule::exists('teams', 'id')],
         ]);
 
-        $user->update(['team_id' => $validated['team_id']]);
+        if ($request->has('team_ids')) {
+            $user->teams()->sync($validated['team_ids'] ?? []);
+            $user->update(['team_id' => $validated['team_ids'][0] ?? null]);
+        } else {
+            $user->update(['team_id' => $validated['team_id']]);
+        }
 
         return back()->with('success', 'Tim berhasil diubah.');
     }
@@ -105,22 +151,28 @@ class UserManagementController extends Controller
     public function import(Request $request, ContactImportService $contactImportService): RedirectResponse
     {
         $validated = $request->validate([
-            'team_id' => ['required', Rule::exists('teams', 'id')],
-            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:5120'],
-            'leader_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_LEADER))],
+            'team_id'       => ['required', Rule::exists('teams', 'id')],
+            'file'          => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:5120'],
+            'leader_id'     => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_LEADER))],
             'sub_leader_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($query) => $query->where('role', User::ROLE_SUB_LEADER))],
         ]);
 
-        $rows = $contactImportService->extractRows($request->file('file'));
+        try {
+            $rows = $contactImportService->extractRows($request->file('file'));
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['file' => $e->getMessage()]);
+        }
+
         if (empty($rows)) {
-            return back()->withErrors(['file' => 'File kosong atau format kolom tidak dikenali.']);
+            return back()->withErrors(['file' => 'File tidak memiliki data. Pastikan file berisi setidaknya satu baris data selain header.']);
         }
 
         $summary = $contactImportService->importRows($rows, [
-            'team_id' => $validated['team_id'],
-            'input_by' => (int) auth()->id(),
-            'sub_leader_id' => $validated['sub_leader_id'] ?? null,
-            'leader_id' => $validated['leader_id'] ?? null,
+            'team_id'          => $validated['team_id'],
+            'input_by'         => (int) Auth::id(),
+            'sub_leader_id'    => $validated['sub_leader_id'] ?? null,
+            'leader_id'        => $validated['leader_id'] ?? null,
+            'imported_by_name' => Auth::user()->name,
         ]);
 
         return back()->with(
@@ -132,10 +184,10 @@ class UserManagementController extends Controller
     public function destroy(Request $request, User $user): RedirectResponse|JsonResponse
     {
         // Only allow deleting marketing users (leaders or assistants)
-        if (!in_array($user->role, [User::ROLE_LEADER, User::ROLE_SUB_LEADER], true)) {
+        if (! in_array($user->role, [User::ROLE_LEADER, User::ROLE_SUB_LEADER], true)) {
             if ($request->wantsJson()) {
                 return response()->json([
-                    'ok' => false,
+                    'ok'      => false,
                     'message' => 'Hanya user marketing yang dapat dihapus.',
                 ], 403);
             }
@@ -158,7 +210,7 @@ class UserManagementController extends Controller
 
         if ($request->wantsJson()) {
             return response()->json([
-                'ok' => true,
+                'ok'      => true,
                 'message' => 'Data user berhasil dihapus.',
             ]);
         }

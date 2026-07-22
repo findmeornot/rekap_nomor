@@ -24,6 +24,12 @@
             'icon' => 'list',
         ];
         $moduleItems[] = [
+            'label' => 'History',
+            'href' => route('superadmin.history.index'),
+            'active' => request()->routeIs('superadmin.history.*'),
+            'icon' => 'history',
+        ];
+        $moduleItems[] = [
             'label' => 'Import Kontak',
             'href' => route('superadmin.import'),
             'active' => request()->routeIs('superadmin.import*'),
@@ -39,25 +45,39 @@
             'icon' => 'list',
         ];
         $moduleItems[] = [
-            'label' => 'Permintaan Nomor',
-            'href' => route('leader.requests.index'),
-            'active' => request()->routeIs('leader.requests.*'),
-            'icon' => 'request',
+            'label' => 'History',
+            'href' => route('leader.history.index'),
+            'active' => request()->routeIs('leader.history.*'),
+            'icon' => 'history',
         ];
+        if (!Auth::user()->isSpecialChannel()) {
+            $moduleItems[] = [
+                'label' => 'Permintaan Nomor',
+                'href' => route('leader.requests.index'),
+                'active' => request()->routeIs('leader.requests.*'),
+                'icon' => 'request',
+            ];
+        }
     }
 
     if (Auth::user()->isSubLeader()) {
         $moduleItems[] = [
             'label' => 'Input Nomor',
             'href' => route('subleader.contacts.index'),
-            'active' => request()->routeIs('subleader.*'),
+            'active' => request()->routeIs('subleader.contacts.*'),
             'icon' => 'phone',
+        ];
+        $moduleItems[] = [
+            'label' => 'History',
+            'href' => route('subleader.history.index'),
+            'active' => request()->routeIs('subleader.history.*'),
+            'icon' => 'history',
         ];
     }
 @endphp
 
 <aside
-    class="fixed inset-y-0 left-0 z-40 hidden border-r border-slate-200 bg-white px-3 py-6 transition-all duration-200 lg:flex lg:flex-col"
+    class="fixed inset-y-0 left-0 z-[90] hidden border-r border-slate-200 bg-white px-3 py-6 transition-all duration-200 lg:flex lg:flex-col"
     :class="sidebarCollapsed ? 'lg:w-24' : 'lg:w-72'"
 >
     <div class="mb-4 flex items-center justify-between px-3">
@@ -139,6 +159,22 @@
                             </svg>
                         @endif
 
+                        @if ($item['icon'] === 'history')
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="1 4 1 10 7 10"></polyline>
+                                <path d="M3.51 15a9 9 0 1 0 .49-4.5"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                        @endif
+
+                        @if ($item['icon'] === 'upload')
+                            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="16 16 12 12 8 16"></polyline>
+                                <line x1="12" y1="12" x2="12" y2="21"></line>
+                                <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+                            </svg>
+                        @endif
+
                         <span x-show="!sidebarCollapsed">{{ $item['label'] }}</span>
                     </a>
                 @endforeach
@@ -178,7 +214,7 @@
     </div>
 </aside>
 
-<div x-show="sidebarOpen" x-transition.opacity class="fixed inset-0 z-40 bg-slate-900/50 lg:hidden" @click="sidebarOpen = false"></div>
+<div x-show="sidebarOpen" x-transition.opacity class="fixed inset-0 z-[110] bg-slate-900/50 lg:hidden" @click="sidebarOpen = false"></div>
 
 <aside
     x-show="sidebarOpen"
@@ -188,7 +224,7 @@
     x-transition:leave="transition ease-in duration-150"
     x-transition:leave-start="translate-x-0 opacity-100"
     x-transition:leave-end="-translate-x-full opacity-0"
-    class="fixed inset-y-0 left-0 z-50 w-72 border-r border-slate-200 bg-white px-3 py-6 shadow-2xl lg:hidden"
+    class="fixed inset-y-0 left-0 z-[120] w-72 border-r border-slate-200 bg-white px-3 py-6 shadow-2xl lg:hidden"
 >
     <div class="mb-5 flex items-center justify-between px-3">
         <a href="{{ route('dashboard') }}" class="inline-flex items-center gap-2" @click="sidebarOpen = false">

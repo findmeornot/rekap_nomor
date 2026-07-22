@@ -16,10 +16,15 @@ class ContactImportService
     {
         $extension = strtolower((string) $file->getClientOriginalExtension());
 
+        if (! in_array($extension, ['csv', 'txt', 'xlsx', 'xls'], true)) {
+            throw new \RuntimeException(
+                "Format file tidak didukung: .{$extension}. Format yang diterima: .csv, .txt, .xlsx, .xls."
+            );
+        }
+
         $rawRows = match ($extension) {
             'csv', 'txt' => $this->extractCsvRows($file),
             'xlsx', 'xls' => $this->extractSpreadsheetRows($file),
-            default => [],
         };
 
         return $this->normalizeRows($rawRows);
@@ -27,22 +32,33 @@ class ContactImportService
 
     /**
      * @param array<int, array{contact_name: string|null, phone: string}> $rows
-     * @param array{team_id:int,input_by:int,sub_leader_id:?int,leader_id:?int,period_key?:string} $context
-     * @return array{created:int,skipped_duplicate:int,skipped_invalid:int}
+     * @param array{team_id?:int,team_ids?:array<int>,input_by:int,sub_leader_id:?int,leader_id:?int,period_key?:string} $context
+     * @return array{created:int,skipped_duplicate:int,skipped_invalid:int,distribution:array<int,int>}
      */
     public function importRows(array $rows, array $context): array
     {
         $periodKey = $context['period_key'] ?? Contact::activePeriodKey();
+        // Duplicate check: scoped to current period.
+        // Old numbers (even if still in contacts table) are allowed for the new month.
         $existingNormalized = Contact::query()
             ->where('period_key', $periodKey)
             ->whereNotNull('normalized_phone')
             ->pluck('normalized_phone')
             ->flip();
 
+        $teamIds = $context['team_ids'] ?? (isset($context['team_id']) ? [$context['team_id']] : []);
+        if (empty($teamIds)) {
+            throw new \InvalidArgumentException('team_ids or team_id must be provided.');
+        }
+
         $batchPhones = [];
         $created = 0;
         $skippedDuplicate = 0;
         $skippedInvalid = 0;
+        
+        $distributionCount = array_fill_keys($teamIds, 0);
+        $teamIndex = 0;
+        $totalTeams = count($teamIds);
 
         foreach ($rows as $row) {
             $rawPhone = (string) ($row['phone'] ?? '');
@@ -66,12 +82,14 @@ class ContactImportService
                 ? trim((string) $row['contact_name'])
                 : null;
 
+            $currentTeamId = $teamIds[$teamIndex % $totalTeams];
+
             Contact::create([
                 'contact_name' => $contactName,
                 'phone' => $normalizedPhone,
                 'normalized_phone' => $normalizedPhone,
                 'period_key' => $periodKey,
-                'team_id' => $context['team_id'],
+                'team_id' => $currentTeamId,
                 'sub_leader_id' => $context['sub_leader_id'] ?? null,
                 'input_by' => $context['input_by'],
                 'leader_id' => $context['leader_id'] ?? null,
@@ -79,6 +97,8 @@ class ContactImportService
             ]);
 
             $batchPhones[$normalizedPhone] = true;
+            $distributionCount[$currentTeamId]++;
+            $teamIndex++;
             $created++;
         }
 
@@ -86,6 +106,7 @@ class ContactImportService
             'created' => $created,
             'skipped_duplicate' => $skippedDuplicate,
             'skipped_invalid' => $skippedInvalid,
+            'distribution' => $distributionCount,
         ];
     }
 
@@ -96,7 +117,7 @@ class ContactImportService
     {
         $handle = fopen($file->getRealPath(), 'r');
         if (! $handle) {
-            return [];
+            throw new \RuntimeException('Gagal membaca file. Pastikan file tidak rusak dan dapat dibuka.');
         }
 
         $rows = [];
@@ -138,17 +159,26 @@ class ContactImportService
         $nameIndex = null;
 
         foreach ($header as $index => $column) {
-            if (in_array($column, ['phone', 'nomor', 'no hp', 'nohp', 'number'], true)) {
+            if (in_array($column, ['phone', 'nomor', 'no hp', 'nohp', 'number', 'no_telp', 'notelp', 'telepon'], true)) {
                 $phoneIndex = $index;
             }
 
-            if (in_array($column, ['name', 'nama', 'contact_name', 'kontak'], true)) {
+            if (in_array($column, ['name', 'nama', 'contact_name', 'kontak', 'nama_perusahaan', 'nama perusahaan'], true)) {
                 $nameIndex = $index;
             }
         }
 
         if ($phoneIndex === null) {
-            return [];
+            $foundColumns = array_filter($header, fn ($col) => $col !== '');
+            $foundDisplay = ! empty($foundColumns)
+                ? implode(', ', $foundColumns)
+                : '(tidak ada kolom terdeteksi)';
+
+            throw new \RuntimeException(
+                "Kolom nomor telepon tidak ditemukan. " .
+                "Kolom yang ditemukan di file: {$foundDisplay}. " .
+                "Kolom yang dibutuhkan (salah satu): phone, nomor, no hp, no_telp, atau number."
+            );
         }
 
         $rows = [];

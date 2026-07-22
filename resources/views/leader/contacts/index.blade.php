@@ -1,11 +1,31 @@
 <x-app-layout>
     <div id="toast-container" class="fixed right-4 top-4 z-50 flex flex-col gap-2 items-end pointer-events-none" style="position:fixed;top:1rem;right:1rem;z-index:9999;"></div>
     <x-slot name="header">
-        <div>
-            <h2 class="text-2xl font-semibold leading-tight text-slate-900">
-                Rekap Nomor Marketing Utama
-            </h2>
-            <p class="mt-1 text-sm text-slate-600">Pantau semua input nomor dari sub leader di bawah kamu.</p>
+        <div class="flex flex-wrap items-center gap-3">
+            <div>
+                <div class="flex items-center gap-2">
+                    <h2 class="text-2xl font-semibold leading-tight text-slate-900">
+                        Rekap Nomor Marketing Utama
+                    </h2>
+                    @php
+                        $channelBadgeClass = match($channelLabel) {
+                            'Topmatch'   => 'bg-violet-100 text-violet-700',
+                            'Kerja Malam' => 'bg-amber-100 text-amber-700',
+                            default      => 'bg-blue-100 text-blue-700',
+                        };
+                    @endphp
+                    <span class="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold {{ $channelBadgeClass }}">
+                        {{ $channelLabel }}
+                    </span>
+                </div>
+                <p class="mt-1 text-sm text-slate-600">
+                    @if ($isSpecialChannel)
+                        Lihat & kelola status nomor dari semua asisten marketing Toploker.
+                    @else
+                        Pantau semua input nomor dari asisten marketing di bawah kamu.
+                    @endif
+                </p>
+            </div>
         </div>
     </x-slot>
 
@@ -14,8 +34,13 @@
             <div class="panel fade-in-up">
                 <div class="flex flex-wrap items-center justify-between gap-4">
                     <div>
-                        <h3 class="section-title">Asisten Marketing Saya</h3>
-                        <p class="section-subtitle">Pilih asisten marketing untuk melihat data yang lebih spesifik.</p>
+                        @if ($isSpecialChannel)
+                            <h3 class="section-title">Filter &amp; Pencarian Nomor</h3>
+                            <p class="section-subtitle">Tampilan status berdasarkan channel <strong>{{ $channelLabel }}</strong> saja.</p>
+                        @else
+                            <h3 class="section-title">Asisten Marketing Saya</h3>
+                            <p class="section-subtitle">Pilih asisten marketing untuk melihat data yang lebih spesifik.</p>
+                        @endif
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <a href="{{ route('leader.contacts.export', request()->only('sub_leader_id', 'period', 'start_date', 'end_date', 'q', 'status')) }}" class="btn-main">Export CSV</a>
@@ -28,11 +53,12 @@
                             type="search"
                             name="q"
                             value="{{ $uiFilters['q'] ?? '' }}"
-                            placeholder="Cari nama, nomor, sub leader..."
+                            placeholder="Cari nama, nomor..."
                             autocomplete="off"
                             aria-label="Cari data kontak"
                             class="xl:col-span-2"
                         />
+                        @if (!$isSpecialChannel)
                         <select name="sub_leader_id" aria-label="Pilih asisten marketing">
                             <option value="">Semua Asisten Marketing</option>
                             @foreach ($subLeaders as $subLeader)
@@ -41,6 +67,7 @@
                                 </option>
                             @endforeach
                         </select>
+                        @endif
                         <select name="status" aria-label="Pilih status">
                             <option value="all" @selected(($uiFilters['status'] ?? 'all') === 'all')>Semua Status</option>
                             <option value="contacted" @selected(($uiFilters['status'] ?? 'all') === 'contacted')>Sudah Dihubungi</option>
@@ -78,6 +105,7 @@
                     </div>
                 </form>
 
+                @if (!$isSpecialChannel)
                 <div class="mt-4 flex flex-wrap gap-2">
                     <a
                         href="{{ route('leader.contacts.index', request()->only('period', 'start_date', 'end_date')) }}"
@@ -93,116 +121,17 @@
                             {{ $subLeader->name }} ({{ $subLeader->contacts_entered_count }} nomor)
                         </a>
                     @empty
-                        <p class="text-sm text-slate-500">Belum ada sub leader yang ditugaskan.</p>
+                        <p class="text-sm text-slate-500">Belum ada asisten marketing yang ditugaskan.</p>
                     @endforelse
                 </div>
+                @else
+                <div class="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-700">
+                    <strong>Info:</strong> Status "Sudah Dihubungi" yang ditampilkan hanya mencerminkan aktivitas channel <strong>{{ $channelLabel }}</strong>. Nomor yang sudah dihubungi oleh channel lain tetap tampil sebagai belum dihubungi di sini.
+                </div>
+                @endif
             </div>
 
-            <div class="panel fade-in-up">
-                <h3 class="section-title">Ringkasan Marketing Utama</h3>
-                <div class="stats-grid mt-4">
-                    <div class="stat-card">
-                        <p class="text-sm font-medium text-slate-500">Total Kontak Tim</p>
-                        <p class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($totalContactsCount) }}</p>
-                    </div>
-                    <div class="stat-card">
-                        <p class="text-sm font-medium text-slate-500">Total Sudah Dihubungi</p>
-                        <p id="total-contacted-count" class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($totalContactedCount) }}</p>
-                    </div>
-                    <div class="stat-card">
-                        <p class="text-sm font-medium text-slate-500">Dihubungi Bulan Ini</p>
-                        <p id="contacted-this-month-count" class="mt-2 text-3xl font-bold text-slate-900">{{ number_format($contactedThisMonthCount) }}</p>
-                    </div>
-                </div>
 
-                <div class="mt-6 border-t border-slate-100 pt-5">
-                    <h4 class="text-sm font-semibold text-slate-700">Target Hari Ini</h4>
-                    <p class="mt-0.5 text-xs text-slate-500">Nomor yang <strong>kamu</strong> hubungi hari ini vs target harian {{ number_format($target) }} nomor.</p>
-                    <div class="mt-4 flex flex-wrap items-center gap-8">
-                        <div class="water-circle">
-                            <div class="water-fill" id="waterFill" style="height: {{ $progress }}%">
-                                <svg class="water-wave-svg" viewBox="0 0 600 20" preserveAspectRatio="none" aria-hidden="true">
-                                    <path d="M0,10 C75,0 150,20 225,10 C300,0 375,20 450,10 C525,0 600,20 675,10 L675,20 L0,20 Z" fill="rgba(96,165,250,0.9)"/>
-                                </svg>
-                            </div>
-                            <div class="water-text">
-                                <p class="water-pct" id="waterProgressPct">{{ $progress }}%</p>
-                                <p class="water-sublabel">hari ini</p>
-                            </div>
-                        </div>
-                        <div class="space-y-2">
-                            <div>
-                                <p class="text-3xl font-bold text-slate-900" id="todayContactedDisplay">{{ number_format($todayContactedCount) }}</p>
-                                <p class="text-sm text-slate-500 mt-0.5">nomor kamu hubungi hari ini</p>
-                            </div>
-                            <p class="text-sm text-slate-600">Target harian: <strong>{{ number_format($target) }}</strong> nomor</p>
-                            <p class="text-sm text-slate-600">Sisa: <strong id="waterRemaining">{{ number_format(max($target - $todayContactedCount, 0)) }}</strong> nomor lagi</p>
-                            @if ($progress >= 100)
-                                <p class="text-sm font-semibold text-emerald-600">Target hari ini sudah tercapai!</p>
-                            @endif
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <style>
-            .water-circle {
-                position: relative;
-                width: 160px;
-                height: 160px;
-                border-radius: 50%;
-                border: 3px solid #3b82f6;
-                overflow: hidden;
-                background: #eff6ff;
-                flex-shrink: 0;
-            }
-            .water-fill {
-                position: absolute;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                background: linear-gradient(0deg, #1d4ed8 0%, #3b82f6 60%, #60a5fa 100%);
-                transition: height 1.5s cubic-bezier(0.4, 0, 0.2, 1);
-                min-height: 0;
-            }
-            .water-wave-svg {
-                position: absolute;
-                top: -10px;
-                left: 0;
-                width: 200%;
-                height: 20px;
-                animation: waveScroll 2.5s linear infinite;
-            }
-            .water-text {
-                position: absolute;
-                inset: 0;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                z-index: 10;
-                pointer-events: none;
-            }
-            .water-pct {
-                font-size: 1.5rem;
-                font-weight: 700;
-                line-height: 1;
-                color: #1e40af;
-                text-shadow: 0 1px 2px rgba(255,255,255,0.8);
-                transition: color 0.5s ease, text-shadow 0.5s ease;
-            }
-            .water-sublabel {
-                font-size: 0.7rem;
-                color: #3b82f6;
-                margin-top: 2px;
-                text-shadow: 0 1px 2px rgba(255,255,255,0.8);
-                transition: color 0.5s ease;
-            }
-            @keyframes waveScroll {
-                0% { transform: translateX(0); }
-                100% { transform: translateX(-50%); }
-            }
-            </style>
 
             <div class="panel fade-in-up">
                 <h3 class="section-title">Daftar Nomor</h3>
@@ -250,12 +179,25 @@
                         </thead>
                         <tbody>
                             @forelse ($contacts as $contact)
+                                @php
+                                    // Use channel-specific contacted status from the map
+                                    $isContactedInChannel = $channelContactedMap[$contact->id] ?? false;
+                                    $statusLabelText = $isContactedInChannel ? 'Sudah Dihubungi' : 'Belum Dihubungi';
+                                @endphp
                                 <tr data-contact-id="{{ $contact->id }}" data-phone="{{ $contact->phone }}">
                                     <td>{{ $contact->contact_name ?? '-' }}</td>
                                     <td class="font-medium">{{ $contact->phone }}</td>
-                                    <td>{{ $contact->subLeader?->name ?? '-' }}</td>
                                     <td>
-                                        <span class="contact-status-label">{{ $contact->statusLabel() }}</span>
+                                        @if ($contact->subLeader)
+                                            {{ $contact->subLeader->name }}
+                                        @elseif ($contact->inputBy && $contact->inputBy->role === \App\Models\User::ROLE_SUPERADMIN)
+                                            {{ $contact->inputBy->name }}
+                                        @else
+                                            -
+                                        @endif
+                                    </td>
+                                    <td>
+                                        <span class="contact-status-label">{{ $statusLabelText }}</span>
                                     </td>
                                     <td>{{ $contact->created_at->format('d M Y H:i') }}</td>
                                     <td>
@@ -266,14 +208,19 @@
                                             data-contact-id="{{ $contact->id }}"
                                             data-status-updated-at="{{ optional($contact->status_updated_at)->format('Y-m') }}"
                                             aria-label="Tandai sudah dihubungi"
-                                            @checked($contact->isContacted())
+                                            @checked($isContactedInChannel)
                                         />
                                     </td>
-                                    <td class="contacted-at-cell">{{ optional($contact->status_updated_at ?? $contact->contacted_at)->format('d M Y H:i') ?? '-' }}</td>
+                                    <td class="contacted-at-cell">
+                                        @php
+                                            $channelContactedAt = $channelContactedDateMap[$contact->id] ?? null;
+                                        @endphp
+                                        {{ $channelContactedAt ? \Carbon\Carbon::parse($channelContactedAt)->format('d M Y H:i') : '-' }}
+                                    </td>
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="px-4 py-4 text-slate-500">Belum ada data nomor.</td>
+                                    <td colspan="7" class="px-4 py-4 text-slate-500">Belum ada data nomor.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -340,13 +287,6 @@
         const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         const toastContainer = document.getElementById('toast-container');
         const totalFoundEl = document.getElementById('total-found-count');
-        const totalContactedEl = document.getElementById('total-contacted-count');
-        const contactedThisMonthEl = document.getElementById('contacted-this-month-count');
-        const waterFillEl = document.getElementById('waterFill');
-        const waterProgressPctEl = document.getElementById('waterProgressPct');
-        const waterRemainingEl = document.getElementById('waterRemaining');
-        const todayContactedDisplayEl = document.getElementById('todayContactedDisplay');
-        const waterTarget = {{ $target }};
         const currentMonth = new Date().toISOString().slice(0, 7);
         const currentStatusFilter = new URLSearchParams(window.location.search).get('status') || 'all';
 
@@ -357,10 +297,6 @@
 
             return parseInt(element.textContent.replace(/[^0-9]/g, ''), 10) || 0;
         };
-
-        let totalContactedCount = parseInteger(totalContactedEl);
-        let contactedThisMonthCount = parseInteger(contactedThisMonthEl);
-        let todayCount = {{ $todayContactedCount }};
 
         const formatNumber = (value) => new Intl.NumberFormat('id-ID').format(value);
 
@@ -380,44 +316,7 @@
             }, 3000);
         };
 
-        const updateWaterFill = (delta) => {
-            todayCount = Math.max(todayCount + delta, 0);
-            const pct = waterTarget > 0 ? Math.min(100, Math.round((todayCount / waterTarget) * 100)) : 0;
 
-            if (todayContactedDisplayEl) todayContactedDisplayEl.textContent = formatNumber(todayCount);
-            if (waterFillEl) waterFillEl.style.height = pct + '%';
-            if (waterRemainingEl) waterRemainingEl.textContent = formatNumber(Math.max(waterTarget - todayCount, 0));
-            if (waterProgressPctEl) {
-                waterProgressPctEl.textContent = pct + '%';
-                const sublabel = waterProgressPctEl.nextElementSibling;
-                if (pct >= 50) {
-                    waterProgressPctEl.style.color = 'white';
-                    waterProgressPctEl.style.textShadow = '0 1px 3px rgba(0,0,0,0.4)';
-                    if (sublabel) { sublabel.style.color = 'rgba(255,255,255,0.9)'; sublabel.style.textShadow = '0 1px 2px rgba(0,0,0,0.3)'; }
-                } else {
-                    waterProgressPctEl.style.color = '#1e40af';
-                    waterProgressPctEl.style.textShadow = '0 1px 2px rgba(255,255,255,0.8)';
-                    if (sublabel) { sublabel.style.color = '#3b82f6'; sublabel.style.textShadow = '0 1px 2px rgba(255,255,255,0.8)'; }
-                }
-            }
-        };
-
-        const updateSummaryCounts = (deltaTotal, deltaMonth, deltaToday) => {
-            totalContactedCount += deltaTotal;
-            contactedThisMonthCount += deltaMonth;
-
-            if (totalContactedEl) {
-                totalContactedEl.textContent = formatNumber(Math.max(totalContactedCount, 0));
-            }
-
-            if (contactedThisMonthEl) {
-                contactedThisMonthEl.textContent = formatNumber(Math.max(contactedThisMonthCount, 0));
-            }
-
-            if (deltaToday !== 0) {
-                updateWaterFill(deltaToday);
-            }
-        };
 
         let totalFoundCount = parseInteger(totalFoundEl);
 
@@ -461,8 +360,7 @@
             }).format(date);
         };
 
-        // Sync initial water text color based on server-rendered fill level
-        updateWaterFill(0);
+
 
         // Bulk copy + bulk update handler
         const bulkBtn = document.getElementById('bulk-copy-btn');
@@ -507,7 +405,6 @@
                 // Optimistically update UI (checkboxes, labels, highlight) after successful copy
                 const prevStates = [];
                 let newlyCheckedCount = 0;
-                let newlyMonthCount = 0;
 
                 rowData.forEach(({ row }) => {
                     const cb = row.querySelector('.contact-marked');
@@ -527,10 +424,6 @@
                         row.classList.add('bg-emerald-50');
                         newlyCheckedCount += 1;
 
-                        const previousStatusUpdatedAt = cb.dataset.statusUpdatedAt || '';
-                        if (previousStatusUpdatedAt !== currentMonth) {
-                            newlyMonthCount += 1;
-                        }
                         cb.dataset.statusUpdatedAt = currentMonth;
 
                         if (currentStatusFilter === 'uncontacted') {
@@ -541,7 +434,7 @@
                     }
                 });
 
-                updateSummaryCounts(newlyCheckedCount, newlyMonthCount, newlyCheckedCount);
+
                 if (currentStatusFilter === 'uncontacted') {
                     updateTotalFoundCount(-newlyCheckedCount);
                 }
@@ -581,7 +474,7 @@
                         updateTotalFoundCount(newlyCheckedCount);
                     }
                     // adjust summary back
-                    updateSummaryCounts(-newlyCheckedCount, -newlyMonthCount, -newlyCheckedCount);
+
                     showToast('Gagal memperbarui status pada server. Perubahan dibatalkan.', 'error');
                 } finally {
                     bulkLock = false;
@@ -598,7 +491,6 @@
                 const contactedAtCell = row?.querySelector('.contacted-at-cell');
                 const previousChecked = !cb.checked;
                 const previousStatusUpdatedAt = cb.dataset.statusUpdatedAt || '';
-                const currentMonthMatch = previousStatusUpdatedAt === currentMonth ? 1 : 0;
                 const nextChecked = cb.checked;
 
                 cb.disabled = true;
@@ -633,7 +525,7 @@
                     }
 
                     if (nextChecked && !previousChecked) {
-                        updateSummaryCounts(1, 1, 1);
+
                         cb.dataset.statusUpdatedAt = currentMonth;
 
                         if (currentStatusFilter === 'uncontacted') {
@@ -645,7 +537,7 @@
                     }
 
                     if (!nextChecked && previousChecked) {
-                        updateSummaryCounts(-1, -currentMonthMatch, -1);
+
                         cb.dataset.statusUpdatedAt = '';
                     }
 

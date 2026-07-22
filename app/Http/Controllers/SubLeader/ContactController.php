@@ -15,12 +15,17 @@ class ContactController extends Controller
 {
     public function index(): View
     {
+        /** @var User $subLeader */
         $subLeader = auth()->user();
-        $contactsCount = Contact::where('sub_leader_id', $subLeader->id)->count();
+        $periodKey = Contact::activePeriodKey();
+        $contactsCount = Contact::where('sub_leader_id', $subLeader->id)
+            ->where('period_key', $periodKey)
+            ->count();
         $target = $subLeader->TARGET_SUB_LEADER;
 
         return view('subleader.contacts.index', [
             'contacts' => Contact::where('sub_leader_id', auth()->id())
+                ->where('period_key', $periodKey)
                 ->latest()
                 ->paginate(20),
             'contactsCount' => $contactsCount,
@@ -38,8 +43,9 @@ class ContactController extends Controller
         ]);
 
         $subLeader = auth()->user();
+        $teamIds = $subLeader->teams()->pluck('teams.id')->toArray();
 
-        if (! $subLeader->team_id) {
+        if (empty($teamIds)) {
             return back()
                 ->withErrors(['phones' => 'Akun belum memiliki tim. Hubungi superadmin untuk assign tim.'])
                 ->withInput();
@@ -59,6 +65,8 @@ class ContactController extends Controller
         }
 
         $periodKey = Contact::activePeriodKey();
+        // Duplicate check: scoped to current period.
+        // Old numbers (even if still in contacts table) are allowed for the new month.
         $existingNormalized = Contact::query()
             ->where('period_key', $periodKey)
             ->whereIn('normalized_phone', $phones)
@@ -71,21 +79,45 @@ class ContactController extends Controller
         $created = 0;
         $skippedDuplicate = 0;
 
+        $totalTeams = count($teamIds);
+        $teamIndex = 0;
+        $distributionCount = array_fill_keys($teamIds, 0);
+
         foreach ($phones as $normalizedPhone) {
             if (isset($existingNormalized[$normalizedPhone]) || isset($batchPhones[$normalizedPhone])) {
                 $skippedDuplicate++;
                 continue;
             }
 
-            Contact::create($this->contactAttributes($subLeader, $normalizedPhone, $contactName));
+            $currentTeamId = $teamIds[$teamIndex % $totalTeams];
+            Contact::create($this->contactAttributes($subLeader, $normalizedPhone, $contactName, $currentTeamId));
 
             $batchPhones[$normalizedPhone] = true;
+            $distributionCount[$currentTeamId]++;
+            $teamIndex++;
             $created++;
         }
+        
+        $distributionText = '';
+        if (!empty($distributionCount)) {
+            $teamNames = \App\Models\Team::whereIn('id', array_keys($distributionCount))->pluck('name', 'id');
+            $distParts = [];
+            foreach ($distributionCount as $tid => $count) {
+                if ($count > 0) {
+                    $tname = $teamNames[$tid] ?? "Tim {$tid}";
+                    $distParts[] = "{$tname}: {$count}";
+                }
+            }
+            if (!empty($distParts)) {
+                $distributionText = " | Distribusi: " . implode(', ', $distParts);
+            }
+        }
+
+        $totalInput = count($phones) + $invalidCount;
 
         return back()->with(
             'success',
-            "Input selesai. Berhasil: {$created}, Duplikat: {$skippedDuplicate}, Tidak valid: {$invalidCount}."
+            "Input selesai. Total: {$totalInput}, Berhasil: {$created}, Duplikat: {$skippedDuplicate}, Tidak valid: {$invalidCount}." . $distributionText
         );
     }
 
@@ -96,42 +128,63 @@ class ContactController extends Controller
         ]);
 
         $subLeader = auth()->user();
+        $teamIds = $subLeader->teams()->pluck('teams.id')->toArray();
 
-        if (! $subLeader->team_id) {
+        if (empty($teamIds)) {
             return back()->withErrors([
                 'file' => 'Akun belum memiliki tim. Hubungi superadmin untuk assign tim.',
             ]);
         }
 
-        $rows = $contactImportService->extractRows($request->file('file'));
+        try {
+            $rows = $contactImportService->extractRows($request->file('file'));
+        } catch (\RuntimeException $e) {
+            return back()->withErrors(['file' => $e->getMessage()]);
+        }
+
         if (empty($rows)) {
-            return back()->withErrors(['file' => 'File kosong atau format kolom tidak dikenali.']);
+            return back()->withErrors(['file' => 'File tidak memiliki data. Pastikan file berisi setidaknya satu baris data selain header.']);
         }
 
         $summary = $contactImportService->importRows($rows, [
-            'team_id' => $subLeader->team_id,
+            'team_ids' => $teamIds,
             'input_by' => $subLeader->id,
             'sub_leader_id' => $subLeader->id,
             'leader_id' => null,
         ]);
+        
+        $distributionText = '';
+        if (isset($summary['distribution']) && !empty($summary['distribution'])) {
+            $teamNames = \App\Models\Team::whereIn('id', array_keys($summary['distribution']))->pluck('name', 'id');
+            $distParts = [];
+            foreach ($summary['distribution'] as $tid => $count) {
+                if ($count > 0) {
+                    $tname = $teamNames[$tid] ?? "Tim {$tid}";
+                    $distParts[] = "{$tname}: {$count}";
+                }
+            }
+            if (!empty($distParts)) {
+                $distributionText = " | Distribusi: " . implode(', ', $distParts);
+            }
+        }
 
         return back()->with(
             'success',
-            "Import selesai. Berhasil: {$summary['created']}, Duplikat: {$summary['skipped_duplicate']}, Tidak valid: {$summary['skipped_invalid']}."
+            "Import selesai. Total: " . count($rows) . ", Berhasil: {$summary['created']}, Duplikat: {$summary['skipped_duplicate']}, Tidak valid: {$summary['skipped_invalid']}." . $distributionText
         );
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function contactAttributes(User $subLeader, string $normalizedPhone, ?string $contactName): array
+    private function contactAttributes(User $subLeader, string $normalizedPhone, ?string $contactName, int $teamId): array
     {
         return [
             'contact_name' => $contactName,
             'phone' => $normalizedPhone,
             'normalized_phone' => $normalizedPhone,
             'period_key' => Contact::activePeriodKey(),
-            'team_id' => $subLeader->team_id,
+            'team_id' => $teamId,
             'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,
             'leader_id' => null,
