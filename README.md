@@ -13,18 +13,20 @@ A role-based Laravel application to collect, manage, and monitor contact numbers
 - Authentication (Laravel Breeze)
 - Role-based authorization (`superadmin`, `leader`, `sub_leader`)
 - Sub leader contact input:
-- manual (single/multiple numbers)
-- bulk file import (`csv`, `txt`, `xlsx`, `xls`)
+  - manual (single/multiple numbers)
+  - bulk file import (`csv`, `txt`, `xlsx`, `xls`)
 - Leader monitoring dashboard:
-- filter by period (`all`, `7d`, `30d`, `custom`)
-- search + status filter (`contacted` / `uncontacted`)
-- pagination controls
-- CSV export
-- one-click WhatsApp redirect + auto mark as contacted
+  - filter by period (`all`, `7d`, `30d`, `custom`)
+  - search + status filter (`contacted` / `uncontacted`)
+  - pagination controls
+  - CSV export
+  - one-click WhatsApp redirect + auto mark as contacted
+  - manual and bulk status updates
+  - request new numbers (number request system)
 - Superadmin control center:
-- create leader/sub leader accounts
-- assign or reassign sub leader to leader
-- global contact recap + filtering
+  - manage teams (`teams`) and assign users to teams
+  - create leader/sub leader accounts
+  - global contact recap, filtering, and global import
 
 ## Tech Stack
 - Backend: Laravel 13, PHP 8.3+
@@ -35,33 +37,42 @@ A role-based Laravel application to collect, manage, and monitor contact numbers
 ## Roles and Access Matrix
 | Role | Main Capabilities |
 |---|---|
-| `superadmin` | Manage users (leader/sub leader), assign leader, view all contacts recap |
-| `leader` | View contacts under own hierarchy, apply filters, export CSV, open WhatsApp and mark contacted |
+| `superadmin` | Manage teams, manage users (leader/sub leader), assign teams, global import, view all contacts recap |
+| `leader` | View contacts under own hierarchy, apply filters, export CSV, WhatsApp redirect, manual/bulk status update, manage number requests |
 | `sub_leader` | Input contacts (manual/import) tied to assigned leader |
 
 ## End-to-End Flow
-1. Superadmin creates `leader` and `sub_leader` accounts.
-2. Superadmin assigns each `sub_leader` to one `leader`.
+1. Superadmin creates `teams`, `leader`, and `sub_leader` accounts.
+2. Superadmin assigns users to teams.
 3. Sub leader uploads/inputs contacts.
 4. System normalizes phone values (non-digit stripped), validates, and skips duplicates.
-5. Leader reviews data, contacts people via WhatsApp route, and status is recorded.
-6. Superadmin reviews aggregate metrics across all leaders.
+5. Leader reviews data, contacts people via WhatsApp route, and status is recorded (or updated manually/in bulk).
+6. Leaders can request additional numbers using the Number Request system.
+7. Superadmin reviews aggregate metrics across all leaders and teams.
 
 ## Database Overview
 Detailed schema: [docs/SCHEMA.md](docs/SCHEMA.md)
 
 High-level tables:
-- `users`: stores account + role + parent leader relation.
+- `users`: stores account + role + team relation + parent leader relation.
+- `teams`: groups users into organizational units.
 - `contacts`: stores normalized phone, optional name, owner relation, and contacted metadata.
+- `number_requests`: stores requests for contact numbers between roles.
+- `number_request_logs`: tracks history/logs of number requests.
 
 ## Route Overview
 - `/dashboard` -> role-aware dashboard summary
-- `/superadmin/users` -> user management
+- `/superadmin/users` -> user management (create, delete, assign teams)
+- `/superadmin/teams` -> team creation
 - `/superadmin/contacts` -> global contacts recap
+- `/superadmin/import` -> global contacts import form & process
 - `/leader/contacts` -> leader contact list
 - `/leader/contacts/export` -> CSV export
-- `/leader/contacts/{contact}/whatsapp` -> redirect + mark contacted
-- `/sub-leader/contacts` -> sub leader input list/form
+- `/leader/contacts/{contact}/whatsapp` -> redirect + auto mark contacted
+- `/leader/contacts/{contact}/status` -> manual status update
+- `/leader/contacts/bulk-status` -> bulk status update
+- `/leader/requests` -> number requests management (list, store, approve, reject)
+- `/sub-leader/contacts` -> sub leader input list/form & manual input process
 - `/sub-leader/contacts/import` -> bulk import
 
 ## Local Development Setup
@@ -121,18 +132,22 @@ npm run build
 - Duplicate phone numbers are skipped globally.
 
 ## Contact Status Logic
-- A contact is considered **contacted** when leader opens WhatsApp endpoint:
-- `contacted_at` is set once.
-- `contacted_by_leader_id` is recorded.
-- Subsequent opens do not overwrite first contact timestamp.
+- A contact is considered **contacted** when:
+  - Leader opens WhatsApp endpoint (auto-mark).
+  - Leader manually toggles the status via the UI (`/leader/contacts/{contact}/status`).
+  - Leader performs a bulk action to mark multiple contacts (`/leader/contacts/bulk-status`).
+  - For auto-mark: `contacted_at` is set once, `contacted_by_leader_id` is recorded, and subsequent opens do not overwrite first contact timestamp.
 
 ## Project Structure (Key Areas)
 - `app/Http/Controllers/SuperAdmin/UserManagementController.php`
 - `app/Http/Controllers/Leader/ContactController.php`
+- `app/Http/Controllers/Leader/NumberRequestController.php`
 - `app/Http/Controllers/SubLeader/ContactController.php`
 - `app/Http/Middleware/EnsureRole.php`
 - `app/Models/User.php`
+- `app/Models/Team.php`
 - `app/Models/Contact.php`
+- `app/Models/NumberRequest.php`
 - `routes/web.php`
 - `resources/views/superadmin/*`
 - `resources/views/leader/*`
