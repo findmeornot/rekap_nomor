@@ -85,7 +85,7 @@ class ArchiveMonthlyContacts extends Command
                                 'status_updated_at'      => $contact->status_updated_at,
                                 'contacted_at'           => $contact->contacted_at,
                                 'contacted_by_leader_id' => $contact->contacted_by_leader_id,
-                                'archive_period'         => $contact->period_key, // Dynamically use the contact's period!
+                                'archive_period'         => date('Y-m', strtotime((string) $contact->created_at)), // Dynamically use the contact's period!
                                 'archived_at'            => $now,
                                 'original_created_at'    => $contact->created_at,
                                 'created_at'             => $now,
