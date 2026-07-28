@@ -32,12 +32,7 @@ class Contact extends Model
 
     public static function activePeriodKey(): string
     {
-        $now = now();
-
-        // Period 1: day 1–14, Period 2: day 15–last day of month.
-        $half = $now->day <= 14 ? '1' : '2';
-
-        return $now->format('Y-m') . '-' . $half;
+        return now()->format('Y-m');
     }
 
     /**
