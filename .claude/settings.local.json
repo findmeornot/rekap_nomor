@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rtk grep *)",
+      "Bash(rtk find *)",
+      "Bash(rtk read *)",
+      "Bash(php artisan *)",
+      "Bash(rtk ls *)",
+      "Bash(/mnt/c/xampp/php/php.exe -v)",
+      "Bash(/mnt/c/xampp/php/php.exe vendor/bin/phpunit --filter \"ContactStoreTest|ContactImportTest\")"
+    ]
+  }
+}

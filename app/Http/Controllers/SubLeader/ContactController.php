@@ -64,11 +64,11 @@ class ContactController extends Controller
                 ->withInput();
         }
 
-        $periodKey = Contact::activePeriodKey();
-        // Duplicate check: scoped to current period.
-        // Old numbers (even if still in contacts table) are allowed for the new month.
+        $dedupWeekKey = Contact::activeDedupWeekKey();
+        // Duplicate check: scoped to the current week.
+        // A number can be re-entered once its dedup week has passed, even within the same month.
         $existingNormalized = Contact::query()
-            ->where('period_key', $periodKey)
+            ->where('dedup_week', $dedupWeekKey)
             ->whereIn('normalized_phone', $phones)
             ->pluck('normalized_phone')
             ->flip();
@@ -184,6 +184,7 @@ class ContactController extends Controller
             'phone' => $normalizedPhone,
             'normalized_phone' => $normalizedPhone,
             'period_key' => Contact::activePeriodKey(),
+            'dedup_week' => Contact::activeDedupWeekKey(),
             'team_id' => $teamId,
             'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,

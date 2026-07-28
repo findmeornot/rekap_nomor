@@ -38,10 +38,11 @@ class ContactImportService
     public function importRows(array $rows, array $context): array
     {
         $periodKey = $context['period_key'] ?? Contact::activePeriodKey();
-        // Duplicate check: scoped to current period.
-        // Old numbers (even if still in contacts table) are allowed for the new month.
+        $dedupWeekKey = Contact::activeDedupWeekKey();
+        // Duplicate check: scoped to the current week.
+        // A number can be re-entered once its dedup week has passed, even within the same month.
         $existingNormalized = Contact::query()
-            ->where('period_key', $periodKey)
+            ->where('dedup_week', $dedupWeekKey)
             ->whereNotNull('normalized_phone')
             ->pluck('normalized_phone')
             ->flip();
@@ -89,6 +90,7 @@ class ContactImportService
                 'phone' => $normalizedPhone,
                 'normalized_phone' => $normalizedPhone,
                 'period_key' => $periodKey,
+                'dedup_week' => $dedupWeekKey,
                 'team_id' => $currentTeamId,
                 'sub_leader_id' => $context['sub_leader_id'] ?? null,
                 'input_by' => $context['input_by'],

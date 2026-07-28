@@ -216,10 +216,9 @@ class DashboardRecapService
 
     private function getSubLeaderDashboardData(User $user): array
     {
-        $periodKey = Contact::activePeriodKey();
         $contactsTotal = $this->getAllContactsQuery()->where('sub_leader_id', $user->id)->count();
         $contactsThisMonth = $this->getAllContactsQuery()->where('sub_leader_id', $user->id)
-            ->where('period_key', $periodKey)
+            ->where('period_key', Contact::activePeriodKey())
             ->count();
 
         $stats = [

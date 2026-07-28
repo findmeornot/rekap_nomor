@@ -157,18 +157,18 @@ Marketing Utama dapat melihat seluruh nomor dalam tim yang sama.
 
 ### Main Rule
 
-Duplicate nomor hanya dicek dalam periode bulan yang sama.
+Duplicate nomor hanya dicek dalam jendela minggu berjalan (ISO week, `dedup_week`), terpisah dari `period_key` bulanan yang dipakai untuk rekap/arsip.
 
 ### Example
 
 #### Allowed
 
-* Nomor 628123 masuk di periode 2026-05
-* Nomor 628123 masuk lagi di periode 2026-06
+* Nomor 628123 masuk di minggu 2026-W20
+* Nomor 628123 masuk lagi di minggu 2026-W21 (walau masih di bulan/periode yang sama)
 
 #### Rejected
 
-* Nomor 628123 masuk dua kali di periode 2026-05
+* Nomor 628123 masuk dua kali di minggu 2026-W20
 
 ---
 
@@ -178,8 +178,8 @@ Duplicate berlaku secara global lintas seluruh sistem.
 
 Contoh:
 
-* Tim A input 628123 di periode 2026-05
-* Tim B tidak boleh input 628123 di periode 2026-05
+* Tim A input 628123 di minggu 2026-W20
+* Tim B tidak boleh input 628123 di minggu 2026-W20
 
 ---
 
@@ -405,7 +405,7 @@ Asisten Marketing
 5. Sistem loop setiap nomor
 6. Sistem normalize nomor
 7. Sistem validasi nomor
-8. Sistem cek duplicate berdasarkan periode aktif
+8. Sistem cek duplicate berdasarkan minggu (dedup_week) aktif
 9. Duplicate di-skip
 10. Nomor valid disimpan
 11. Sistem menampilkan summary:
@@ -506,7 +506,8 @@ Superadmin
 ## 7.1 General Rules
 
 * Semua nomor menggunakan normalized_phone
-* Semua nomor memiliki period_key
+* Semua nomor memiliki period_key (bulanan, untuk rekap/arsip)
+* Semua nomor memiliki dedup_week (mingguan, untuk cek duplikat)
 * Semua nomor memiliki team_id
 * Semua nomor memiliki input_by
 
@@ -517,7 +518,9 @@ Superadmin
 Duplicate checker menggunakan:
 
 * normalized_phone
-* period_key
+* dedup_week (ISO week key, mis. `2026-W20`)
+
+`period_key` (bulanan) tetap disimpan untuk rekap/arsip, tapi tidak lagi menjadi basis pengecekan duplikat.
 
 Duplicate checker bersifat global lintas seluruh sistem.
 
