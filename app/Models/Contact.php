@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Model;
     'phone',
     'normalized_phone',
     'period_key',
+    'dedup_week',
     'team_id',
     'sub_leader_id',
     'input_by',
@@ -37,6 +38,16 @@ class Contact extends Model
         $half = $now->day <= 14 ? '1' : '2';
 
         return $now->format('Y-m') . '-' . $half;
+    }
+
+    /**
+     * ISO-8601 week key (e.g. "2026-W30") used to scope duplicate-number
+     * checks. Kept separate from period_key, which stays monthly for
+     * reporting and archival.
+     */
+    public static function activeDedupWeekKey(): string
+    {
+        return now()->format('o-\WW');
     }
 
     public static function statusFromInput(string $value): string

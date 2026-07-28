@@ -40,6 +40,7 @@ class ContactStoreTest extends TestCase
             'phone' => '628111111001',
             'normalized_phone' => '628111111001',
             'period_key' => Contact::activePeriodKey(),
+            'dedup_week' => Contact::activeDedupWeekKey(),
             'team_id' => $subLeader->team_id,
             'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,
@@ -69,7 +70,7 @@ class ContactStoreTest extends TestCase
         $this->assertEquals(3, Contact::count());
     }
 
-    public function test_same_number_can_be_added_in_different_period(): void
+    public function test_same_number_can_be_added_in_different_dedup_week(): void
     {
         [, , $subLeader] = $this->createTeamUsers();
 
@@ -77,6 +78,7 @@ class ContactStoreTest extends TestCase
             'phone' => '628123456789',
             'normalized_phone' => '628123456789',
             'period_key' => now()->subMonth()->format('Y-m'),
+            'dedup_week' => now()->subWeek()->format('o-\WW'),
             'team_id' => $subLeader->team_id,
             'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,
@@ -93,7 +95,7 @@ class ContactStoreTest extends TestCase
         $this->assertEquals(2, Contact::count());
     }
 
-    public function test_duplicate_detected_across_phone_formats_in_same_period(): void
+    public function test_duplicate_detected_across_phone_formats_in_same_dedup_week(): void
     {
         [, , $subLeader] = $this->createTeamUsers();
 
@@ -101,6 +103,7 @@ class ContactStoreTest extends TestCase
             'phone' => '628123456789',
             'normalized_phone' => '628123456789',
             'period_key' => Contact::activePeriodKey(),
+            'dedup_week' => Contact::activeDedupWeekKey(),
             'team_id' => $subLeader->team_id,
             'sub_leader_id' => $subLeader->id,
             'input_by' => $subLeader->id,

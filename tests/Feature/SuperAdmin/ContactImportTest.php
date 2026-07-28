@@ -25,6 +25,7 @@ class ContactImportTest extends TestCase
             'phone' => '628111111001',
             'normalized_phone' => '628111111001',
             'period_key' => Contact::activePeriodKey(),
+            'dedup_week' => Contact::activeDedupWeekKey(),
             'team_id' => $team->id,
             'sub_leader_id' => null,
             'input_by' => $superAdmin->id,
